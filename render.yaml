@@ -1,0 +1,92 @@
+# Free-tier DEMO only. See docs/FREE-DEPLOYMENT.md before provisioning.
+services:
+  - type: web
+    name: aether-api-demo
+    runtime: docker
+    repo: https://github.com/VaibhavBansal26/aether-cinema
+    branch: main
+    plan: free
+    region: oregon
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: aether-demo-secrets
+      - key: SPRING_PROFILES_ACTIVE
+        value: render-demo
+      - key: PORT
+        value: '8080'
+      - key: RENDER_DB_HOST
+        fromDatabase: {name: aether-demo-db, property: host}
+      - key: RENDER_DB_PORT
+        fromDatabase: {name: aether-demo-db, property: port}
+      - key: RENDER_DB_NAME
+        fromDatabase: {name: aether-demo-db, property: database}
+      - key: DATABASE_USERNAME
+        fromDatabase: {name: aether-demo-db, property: user}
+      - key: DATABASE_PASSWORD
+        fromDatabase: {name: aether-demo-db, property: password}
+      - key: REDIS_URL
+        fromService: {name: aether-demo-cache, type: keyvalue, property: connectionString}
+      - key: OIDC_ISSUER
+        sync: false
+      - key: OIDC_JWKS_URL
+        sync: false
+      - key: OIDC_AUDIENCE
+        sync: false
+      - key: APP_ORIGIN
+        sync: false
+      - key: RECOMMENDER_URL
+        sync: false
+      - key: WORKER_ENABLED
+        value: 'true'
+      - key: RECOMMENDATION_CACHE_ENABLED
+        value: 'true'
+      - key: STRIPE_SECRET_KEY
+        value: not-configured
+      - key: STRIPE_WEBHOOK_SECRET
+        value: not-configured
+      - key: STRIPE_PRICE_ESSENTIAL
+        value: not-configured
+      - key: STRIPE_PRICE_CINEMA
+        value: not-configured
+      - key: STRIPE_PRICE_COLLECTIVE
+        value: not-configured
+      - key: CF_ACCOUNT_ID
+        value: not-configured
+      - key: CF_STREAM_TOKEN
+        value: not-configured
+      - key: CF_CUSTOMER_CODE
+        value: not-configured
+  - type: web
+    name: aether-recommender-demo
+    runtime: docker
+    repo: https://github.com/VaibhavBansal26/aether-cinema
+    branch: main
+    plan: free
+    region: oregon
+    dockerfilePath: ./recommender/Dockerfile
+    dockerContext: ./recommender
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: aether-demo-secrets
+      - key: PORT
+        value: '8090'
+  - type: keyvalue
+    name: aether-demo-cache
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+databases:
+  - name: aether-demo-db
+    plan: free
+    region: oregon
+    databaseName: aether
+    user: aether_demo
+    postgresMajorVersion: '16'
+envVarGroups:
+  - name: aether-demo-secrets
+    envVars:
+      - key: RECOMMENDER_SERVICE_TOKEN
+        generateValue: true

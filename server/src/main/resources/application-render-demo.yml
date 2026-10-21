@@ -1,0 +1,13 @@
+# Deliberately separate from the production profile. Render free resources are disposable demos.
+spring:
+  datasource:
+    url: jdbc:postgresql://${RENDER_DB_HOST}:${RENDER_DB_PORT:5432}/${RENDER_DB_NAME}?sslmode=require
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+      initialization-fail-timeout: -1
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

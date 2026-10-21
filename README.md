@@ -31,19 +31,20 @@ Apply `server/migrations/002_recommendations.sql` once after the baseline schema
 
 ## Integration foundation (not live)
 
-The separate Spring Boot API uses Spring Security OAuth2 Resource Server for JWT verification (issuer, audience, expiry and JWKS signature), application-owned roles, profile ownership, Spring JDBC parameterized writes, HikariCP connection pooling, Bean Validation, signed Cloudflare playback authorization, the official Stripe Java SDK, raw-body webhook signatures, event deduplication and per-subscription serialization, bounded payloads, graceful shutdown and transactional draft audit records. Actuator exposes health probes only. Configure distributed rate limiting at the gateway/WAF before exposure.
+The separate Spring Boot API uses Spring Security OAuth2 Resource Server for JWT verification (issuer, audience, expiry and JWKS signature), application-owned roles, profile ownership, Spring JDBC parameterized writes, HikariCP connection pooling, Bean Validation, signed Cloudflare playback authorization, the official Stripe Java SDK, raw-body webhook signatures, event deduplication and per-subscription serialization, bounded payloads, graceful shutdown and transactional draft audit records. Actuator exposes anonymous health probes and authenticated Prometheus metrics; the free Render profile exposes health only. Configure distributed rate limiting at the gateway/WAF before exposure.
 
 See [architecture](docs/ARCHITECTURE.md), [feature and function reference](docs/REFERENCE.md), [operations](docs/OPERATIONS.md), and [validation](docs/VALIDATION.md). All authored behavior entry points have source comments. External library internals are documented by their vendors.
 
 ## GitHub
 
-The connected GitHub tool set cannot create repositories and the installed `gh` session is expired. After `gh auth login`, create a private repository from this checkout:
+Public source repository: [VaibhavBansal26/aether-cinema](https://github.com/VaibhavBansal26/aether-cinema).
 
 ```sh
-gh repo create aether-cinema --private --source=. --remote=github --push
+git clone https://github.com/VaibhavBansal26/aether-cinema.git
+cd aether-cinema
 ```
 
-The Sites remote is separate and must be preserved. Repo creation was not completed by this release.
+The Sites preview has a separate source remote and remains owner-private. A free-tier Render demo template is included in `render.yaml`; see [deployment setup and limits](docs/FREE-DEPLOYMENT.md). Public backend deployment still requires Render access and trusted OIDC configuration.
 
 ## Media and screenshots
 
