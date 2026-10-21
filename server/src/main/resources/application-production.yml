@@ -1,0 +1,25 @@
+# Activate with SPRING_PROFILES_ACTIVE=production. Use JDBC sslmode=verify-full and a trusted CA.
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:2}
+      max-lifetime: 1500000
+      idle-timeout: 300000
+      data-source-properties:
+        ApplicationName: aether
+        tcpKeepAlive: true
+        connectTimeout: 5
+        socketTimeout: 10
+        sslmode: verify-full
+  data:
+    redis:
+      url: ${REDIS_URL}
+management:
+  server:
+    port: 9090
+  metrics:
+    tags:
+      application: aether-api
+app:
+  recommendation-cache-enabled: true

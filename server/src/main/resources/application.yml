@@ -1,0 +1,64 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+  tomcat:
+    max-http-form-post-size: 32KB
+spring:
+  application:
+    name: aether-api
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      connection-timeout: 3000
+      validation-timeout: 2000
+      connection-init-sql: SET statement_timeout = '5s'
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      connect-timeout: 200ms
+      timeout: 200ms
+  sql:
+    init:
+      mode: never
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER}
+          jwk-set-uri: ${OIDC_JWKS_URL}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+app:
+  worker-enabled: ${WORKER_ENABLED:false}
+  recommendation-cache-enabled: ${RECOMMENDATION_CACHE_ENABLED:false}
+  audience: ${OIDC_AUDIENCE}
+  origin: ${APP_ORIGIN}
+  stripe-secret-key: ${STRIPE_SECRET_KEY}
+  stripe-webhook-secret: ${STRIPE_WEBHOOK_SECRET}
+  stripe-price-essential: ${STRIPE_PRICE_ESSENTIAL}
+  stripe-price-cinema: ${STRIPE_PRICE_CINEMA}
+  stripe-price-collective: ${STRIPE_PRICE_COLLECTIVE}
+  cf-account-id: ${CF_ACCOUNT_ID}
+  cf-stream-token: ${CF_STREAM_TOKEN}
+  cf-customer-code: ${CF_CUSTOMER_CODE}
+  recommender-url: ${RECOMMENDER_URL:}
+  recommender-token: ${RECOMMENDER_SERVICE_TOKEN:}

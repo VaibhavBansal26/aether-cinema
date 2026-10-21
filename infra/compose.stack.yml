@@ -1,0 +1,86 @@
+# Complete LOCAL TEST stack. OIDC fixture mints test identities; NEVER expose this stack publicly.
+name: aether-local
+x-api-env: &api-env
+  DATABASE_URL: jdbc:postgresql://postgres:5432/aether
+  DATABASE_USERNAME: aether_test
+  DATABASE_PASSWORD: local-test-only
+  DB_POOL_SIZE: 5
+  OIDC_ISSUER: http://oidc:8081
+  OIDC_JWKS_URL: http://oidc:8081/jwks
+  OIDC_AUDIENCE: aether-api
+  APP_ORIGIN: http://localhost:8080
+  STRIPE_SECRET_KEY: not-configured
+  STRIPE_WEBHOOK_SECRET: not-configured
+  STRIPE_PRICE_ESSENTIAL: not-configured
+  STRIPE_PRICE_CINEMA: not-configured
+  STRIPE_PRICE_COLLECTIVE: not-configured
+  CF_ACCOUNT_ID: not-configured
+  CF_STREAM_TOKEN: not-configured
+  CF_CUSTOMER_CODE: not-configured
+  REDIS_URL: redis://redis:6379
+  RECOMMENDATION_CACHE_ENABLED: 'true'
+  RECOMMENDER_URL: http://recommender:8090
+  RECOMMENDER_SERVICE_TOKEN: local-only-token-never-for-public-deployment
+  WORKER_ENABLED: 'false'
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: aether_test
+      POSTGRES_PASSWORD: local-test-only
+      POSTGRES_DB: aether
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U aether_test -d aether']
+      interval: 2s
+      retries: 30
+  migrate:
+    image: postgres:16
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment:
+      PGHOST: postgres
+      PGUSER: aether_test
+      PGPASSWORD: local-test-only
+      PGDATABASE: aether
+    volumes:
+      - ../server:/schema:ro
+      - ./local:/fixtures:ro
+    entrypoint: [sh, /fixtures/migrate.sh]
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --maxmemory, 128mb, --maxmemory-policy, allkeys-lru]
+  oidc:
+    build: ./local
+  recommender:
+    build: ../recommender
+    environment:
+      RECOMMENDER_SERVICE_TOKEN: local-only-token-never-for-public-deployment
+    mem_limit: 512m
+  api:
+    build: ../server
+    environment: *api-env
+    ports: ['127.0.0.1:8080:8080']
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      oidc: {condition: service_started}
+      redis: {condition: service_started}
+      recommender: {condition: service_started}
+    mem_limit: 512m
+  worker:
+    build: ../server
+    environment:
+      <<: *api-env
+      WORKER_ENABLED: 'true'
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    mem_limit: 512m
+  verify:
+    build: ./local
+    profiles: [test]
+    entrypoint: [python, verify.py]
+    environment:
+      BASE_URL: http://api:8080
+      CHECK_MODE: ${CHECK_MODE:-normal}
+    depends_on:
+      api: {condition: service_started}

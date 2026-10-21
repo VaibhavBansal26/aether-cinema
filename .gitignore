@@ -1,0 +1,9 @@
+node_modules/
+.env*
+!.env.example
+*.tar.gz
+server/target/
+recommender/.venv/
+__pycache__/
+.pytest_cache/
+recommender/models/

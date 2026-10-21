@@ -1,0 +1,12 @@
+# Private ML service only. Attach Spring Boot to this network; do not publish inference ports.
+services:
+  recommender:
+    build: ./recommender
+    environment:
+      RECOMMENDER_SERVICE_TOKEN: ${RECOMMENDER_SERVICE_TOKEN:?Set a unique internal service token}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    expose: ['8090']
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1
+# No Ollama container/model pull is started by default. Admin policy is initially disabled.

@@ -1,0 +1,231 @@
+{
+  "data": "synthetic demonstration; not a production quality evaluation",
+  "cold_start": {
+    "hero": "coast",
+    "rows": [
+      {
+        "id": "for_you",
+        "title": "Discover something great",
+        "reason": "Editorial discovery for a new viewer",
+        "items": [
+          {
+            "title_id": "coast",
+            "position": 1,
+            "score": 0.95,
+            "reason": "Editorial discovery for a new viewer"
+          },
+          {
+            "title_id": "signal",
+            "position": 2,
+            "score": 0.9,
+            "reason": "Editorial discovery for a new viewer"
+          },
+          {
+            "title_id": "tide",
+            "position": 3,
+            "score": 0.85,
+            "reason": "Editorial discovery for a new viewer"
+          },
+          {
+            "title_id": "forest",
+            "position": 4,
+            "score": 0.8,
+            "reason": "Editorial discovery for a new viewer"
+          },
+          {
+            "title_id": "stars",
+            "position": 5,
+            "score": 0.8,
+            "reason": "Editorial discovery for a new viewer"
+          },
+          {
+            "title_id": "orbit",
+            "position": 6,
+            "score": 0.8,
+            "reason": "Editorial discovery for a new viewer"
+          }
+        ],
+        "position": 1
+      },
+      {
+        "id": "genre_Documentary",
+        "title": "More Documentary",
+        "reason": "Because you watch Documentary",
+        "items": [
+          {
+            "title_id": "forest",
+            "position": 1,
+            "score": 0.8,
+            "reason": "Because you watch Documentary"
+          }
+        ],
+        "position": 2
+      },
+      {
+        "id": "genre_Drama",
+        "title": "More Drama",
+        "reason": "Because you watch Drama",
+        "items": [
+          {
+            "title_id": "coast",
+            "position": 1,
+            "score": 0.95,
+            "reason": "Because you watch Drama"
+          }
+        ],
+        "position": 3
+      },
+      {
+        "id": "films",
+        "title": "Make it a movie night",
+        "reason": "Explore a different format",
+        "items": [
+          {
+            "title_id": "signal",
+            "position": 1,
+            "score": 0.9,
+            "reason": "Explore a different format"
+          },
+          {
+            "title_id": "stars",
+            "position": 2,
+            "score": 0.8,
+            "reason": "Explore a different format"
+          }
+        ],
+        "position": 4
+      },
+      {
+        "id": "series",
+        "title": "Your next series",
+        "reason": "Explore a different format",
+        "items": [
+          {
+            "title_id": "tide",
+            "position": 1,
+            "score": 0.85,
+            "reason": "Explore a different format"
+          },
+          {
+            "title_id": "orbit",
+            "position": 2,
+            "score": 0.8,
+            "reason": "Explore a different format"
+          }
+        ],
+        "position": 5
+      }
+    ],
+    "llm_status": "disabled",
+    "model": "tfidf-v1",
+    "personalized": false
+  },
+  "after_watching_scifi": {
+    "hero": "stars",
+    "rows": [
+      {
+        "id": "for_you",
+        "title": "Picked for your taste",
+        "reason": "Based on your watched content and likes",
+        "items": [
+          {
+            "title_id": "stars",
+            "position": 1,
+            "score": 0.662497,
+            "reason": "Based on your watched content and likes"
+          },
+          {
+            "title_id": "orbit",
+            "position": 2,
+            "score": 0.615693,
+            "reason": "Based on your watched content and likes"
+          },
+          {
+            "title_id": "coast",
+            "position": 3,
+            "score": 0.337197,
+            "reason": "Based on your watched content and likes"
+          },
+          {
+            "title_id": "tide",
+            "position": 4,
+            "score": 0.233504,
+            "reason": "Based on your watched content and likes"
+          },
+          {
+            "title_id": "forest",
+            "position": 5,
+            "score": 0.210303,
+            "reason": "Based on your watched content and likes"
+          }
+        ],
+        "position": 1
+      },
+      {
+        "id": "genre_Sci-Fi",
+        "title": "More Sci-Fi",
+        "reason": "Because you watch Sci-Fi",
+        "items": [
+          {
+            "title_id": "stars",
+            "position": 1,
+            "score": 0.662497,
+            "reason": "Because you watch Sci-Fi"
+          },
+          {
+            "title_id": "orbit",
+            "position": 2,
+            "score": 0.615693,
+            "reason": "Because you watch Sci-Fi"
+          }
+        ],
+        "position": 2
+      },
+      {
+        "id": "films",
+        "title": "Make it a movie night",
+        "reason": "Your preferred format",
+        "items": [
+          {
+            "title_id": "coast",
+            "position": 1,
+            "score": 0.337197,
+            "reason": "Your preferred format"
+          }
+        ],
+        "position": 3
+      },
+      {
+        "id": "genre_Documentary",
+        "title": "More Documentary",
+        "reason": "Because you watch Documentary",
+        "items": [
+          {
+            "title_id": "forest",
+            "position": 1,
+            "score": 0.210303,
+            "reason": "Because you watch Documentary"
+          }
+        ],
+        "position": 4
+      },
+      {
+        "id": "series",
+        "title": "Your next series",
+        "reason": "Explore a different format",
+        "items": [
+          {
+            "title_id": "tide",
+            "position": 1,
+            "score": 0.233504,
+            "reason": "Explore a different format"
+          }
+        ],
+        "position": 5
+      }
+    ],
+    "llm_status": "disabled",
+    "model": "tfidf-v1",
+    "personalized": true
+  }
+}
