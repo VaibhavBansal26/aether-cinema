@@ -31,7 +31,7 @@ public class IdentityProxyController {
  static String firstPartyCookie(String cookie){
   return cookie.replaceAll("(?i);\\s*Domain=[^;]*","").replaceAll("(?i);\\s*SameSite=[^;]*","")+"; SameSite=Lax";
  }
- @RequestMapping(value={"/sign-in/email","/sign-up/email","/sign-out","/get-session","/token"},method={RequestMethod.GET,RequestMethod.POST})
+ @RequestMapping(value={"/sign-in/email","/sign-up/email","/sign-out","/change-password","/get-session","/token"},method={RequestMethod.GET,RequestMethod.POST})
  public ResponseEntity<byte[]> forward(HttpServletRequest request,@RequestBody(required=false) byte[] body){
   if(!enabled)throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"Identity is not configured");
   String path=request.getRequestURI().substring("/api/identity/".length());boolean read=path.equals("get-session")||path.equals("token");

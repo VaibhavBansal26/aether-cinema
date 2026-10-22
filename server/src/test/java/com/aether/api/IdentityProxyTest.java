@@ -27,4 +27,13 @@ class IdentityProxyTest {
   var request=new MockHttpServletRequest("POST","/api/identity/sign-in/email");request.addHeader("Origin","https://app.example");
   var response=controller.forward(request,"{}".getBytes());assertEquals(200,response.getStatusCode().value());assertEquals("no-store",response.getHeaders().getCacheControl());server.verify();
  }
+ @Test void passwordChangesRequireSameOriginAndOnlyForwardIdentityCookie(){
+  var controller=new IdentityProxyController("https://identity.neon.tech/auth","https://app.example");
+  var builder=RestClient.builder().baseUrl("https://identity.neon.tech/auth");var server=MockRestServiceServer.bindTo(builder).build();ReflectionTestUtils.setField(controller,"client",builder.build());
+  server.expect(requestTo("https://identity.neon.tech/auth/change-password")).andExpect(method(HttpMethod.POST)).andExpect(header("Cookie","__Secure-neon-auth.session_token=fixture"))
+   .andRespond(withStatus(HttpStatus.UNAUTHORIZED).body("{\"message\":\"Invalid current password\"}").contentType(MediaType.APPLICATION_JSON));
+  var request=new MockHttpServletRequest("POST","/api/identity/change-password");request.addHeader("Origin","https://app.example");request.addHeader("Cookie","unrelated=private; __Secure-neon-auth.session_token=fixture");
+  var response=controller.forward(request,"{}".getBytes());assertEquals(401,response.getStatusCode().value());assertEquals("no-store",response.getHeaders().getCacheControl());server.verify();
+  request.addHeader("Sec-Fetch-Site","cross-site");assertEquals(403,assertThrows(ApiException.class,()->controller.forward(request,new byte[0])).status().value());
+ }
 }

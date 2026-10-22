@@ -19,7 +19,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers(org.springframework.http.HttpMethod.GET,"/","/index.html","/style.css","/*.js","/assets/**","/api/auth/config").permitAll()
                 .requestMatchers("/health", "/actuator/health", "/actuator/health/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/stripe/webhook","/api/identity/sign-in/email","/api/identity/sign-up/email","/api/identity/sign-out").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/stripe/webhook","/api/identity/sign-in/email","/api/identity/sign-up/email","/api/identity/sign-out","/api/identity/change-password").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/identity/get-session","/api/identity/token").permitAll()
                 .anyRequest().authenticated())
             .oauth2ResourceServer(o -> o.jwt(j -> {}))
