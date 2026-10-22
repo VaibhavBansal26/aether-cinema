@@ -6,10 +6,13 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "dev": "python3 -m http.server 4173 --directory dist",
-    "build:auth": "esbuild frontend/auth-entry.js --bundle --format=esm --platform=browser --minify --external:./api-client.js --external:./catalog.js --outfile=dist/auth-client.js"
+    "build:auth": "esbuild frontend/auth-entry.js --bundle --format=esm --platform=browser --minify --external:./api-client.js --external:./catalog.js --outfile=dist/auth-client.js",
+    "build:player": "esbuild frontend/player-entry.js --bundle --format=esm --platform=browser --minify --external:./api-client.js --outfile=dist/adaptive-player.js",
+    "build:gateway": "esbuild media-gateway/src/worker.js --bundle --format=esm --outfile=media-gateway/build/worker.mjs"
   },
   "dependencies": {
-    "@neondatabase/auth": "0.7.0-beta"
+    "@neondatabase/auth": "0.7.0-beta",
+    "hls.js": "1.7.3"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

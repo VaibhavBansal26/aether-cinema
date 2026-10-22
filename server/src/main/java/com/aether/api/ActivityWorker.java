@@ -23,6 +23,7 @@ public class ActivityWorker {
         this.db=db;this.tx=new TransactionTemplate(manager);this.metrics=metrics;this.enabled=enabled;
         tx.setTimeout(5);
     }
+    @org.springframework.beans.factory.annotation.Value("${app.kafka-enabled:false}") private boolean kafkaEnabled;
     /** One job per transaction bounds lock duration and avoids external IO while holding a claim. */
     public boolean processOne() {
         return Boolean.TRUE.equals(tx.execute(status->{
@@ -43,10 +44,12 @@ public class ActivityWorker {
             return true;
         }));
     }
+    /** Bounded retention batches; Kafka dedup IDs remain for replay safety and require an explicit retention policy. */
+    @Scheduled(fixedDelay=60000) public void cleanup(){if(!enabled||kafkaEnabled)return;try{db.update("DELETE FROM activity_jobs WHERE id IN (SELECT id FROM activity_jobs WHERE state='done' AND created_at<now()-interval '7 days' ORDER BY created_at LIMIT 5000)");db.update("DELETE FROM playback_sessions WHERE id IN (SELECT id FROM playback_sessions WHERE expires_at<now()-interval '1 day' LIMIT 5000)");}catch(Exception failure){metrics.counter("aether.jobs.cleanup_failures").increment();}}
     /** Enable on worker deployments; API replicas may disable processing independently. */
     @Scheduled(fixedDelayString="${app.worker-delay-ms:1000}")
     public void drain() {
-        if(!enabled)return;
+        if(!enabled||kafkaEnabled)return;
         try { for(int i=0;i<50&&processOne();i++) {} }
         catch(Exception failure) {metrics.counter("aether.jobs.poll_failures").increment();}
     }

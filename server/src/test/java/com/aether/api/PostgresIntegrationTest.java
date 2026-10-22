@@ -26,6 +26,11 @@ class PostgresIntegrationTest {
         db.execute(Files.readString(Path.of("migrations/002_recommendations.sql")));
         db.execute(Files.readString(Path.of("migrations/003_infrastructure.sql")));
         db.execute(Files.readString(Path.of("migrations/004_video_publishing.sql")));
+        db.execute(Files.readString(Path.of("migrations/005_scale_controls.sql")));
+        db.execute(Files.readString(Path.of("migrations/006_kafka.sql")));
+        db.execute(Files.readString(Path.of("migrations/007_r2_bundles.sql")));
+        db.execute(Files.readString(Path.of("migrations/008_checkout_intents.sql")));
+        db.execute(Files.readString(Path.of("migrations/009_retention.sql")));
     }
     @BeforeEach void seed() {
         db.execute("TRUNCATE audit_log,stripe_events,playback,reactions,profiles,subscriptions,titles,users CASCADE");
@@ -143,4 +148,60 @@ class PostgresIntegrationTest {
         assertEquals("admin",((Map<?,?>)existing.get("user")).get("role"));
     }
 
+
+    @Test void simultaneousStartsAcrossReplicasCannotExceedMembershipLimit() throws Exception {
+        db.update("UPDATE titles SET stream_uid=?,media_ready=true WHERE id=?","a".repeat(32),titleId);
+        db.update("INSERT INTO subscriptions(user_id,customer_id,status,plan,stream_limit) VALUES(?,'cus_race','active','cinema',2)",userId);
+        var service=new PlaybackSessions(db,new IdentityService(db),library);var user=new IdentityService.User(userId,"viewer");
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(8);var barrier=new java.util.concurrent.CyclicBarrier(8);
+        try {
+            var futures=new ArrayList<java.util.concurrent.Future<Boolean>>();for(int i=0;i<8;i++)futures.add(executor.submit(()->{barrier.await();try{transactions.execute(status->service.acquire(user,profileId,titleId,UUID.randomUUID()));return true;}catch(ApiException e){assertEquals(409,e.status().value());return false;}}));
+            int admitted=0;for(var future:futures)if(future.get())admitted++;assertEquals(2,admitted);assertEquals(2,service.list(user).size());
+        }finally{executor.shutdownNow();}
+    }
+    @Test void expiredOrRevokedLeasesCannotRenewAndSequencePreventsStaleProgress(){
+        db.update("UPDATE titles SET stream_uid=?,media_ready=true WHERE id=?","b".repeat(32),titleId);
+        db.update("INSERT INTO subscriptions(user_id,customer_id,status) VALUES(?,'cus_lease','active')",userId);
+        var service=new PlaybackSessions(db,new IdentityService(db),library);var user=new IdentityService.User(userId,"viewer");UUID client=UUID.randomUUID();
+        var lease=transactions.execute(status->service.acquire(user,profileId,titleId,client));assertEquals(lease.id(),transactions.execute(status->service.acquire(user,profileId,titleId,client)).id());
+        transactions.execute(status->service.renew(user,lease.id(),2,new Requests.Progress(30d,100d,.4d,true)));
+        transactions.execute(status->service.renew(user,lease.id(),1,new Requests.Progress(5d,100d,.9d,false)));
+        assertEquals(30d,((Number)library.progress(user,profileId).getFirst().get("position_seconds")).doubleValue());
+        service.release(new IdentityService.User(otherUser,"viewer"),lease.id());assertEquals(1,service.list(user).size());
+        db.update("UPDATE subscriptions SET status='canceled' WHERE user_id=?",userId);assertThrows(ApiException.class,()->transactions.execute(status->service.renew(user,lease.id(),3,null)));
+        db.update("UPDATE subscriptions SET status='active' WHERE user_id=?",userId);db.update("UPDATE playback_sessions SET expires_at=now()-interval '1 second' WHERE id=?",lease.id());assertThrows(ApiException.class,()->transactions.execute(status->service.renew(user,lease.id(),3,null)));
+    }
+    @Test void snapshotJobsCoalesceWhileBrokerIsDown(){
+        for(int i=0;i<30;i++)transactions.executeWithoutResult(status->library.saveProgress(new IdentityService.User(userId,"viewer"),profileId,titleId,new Requests.Progress(10d,100d,.5d,false)));
+        assertEquals(1,db.queryForObject("SELECT count(*) FROM activity_jobs WHERE state='pending'",Integer.class));assertEquals(30,db.queryForObject("SELECT revision FROM profile_revisions WHERE profile_id=?",Integer.class,profileId));
+    }
+    @Test void warmRecommendationCacheSkipsCatalogAndHistoryQueries(){
+        var jdbc=org.mockito.Mockito.spy(db);var gateway=new RecommendationGateway(jdbc,new IdentityService(db),new com.fasterxml.jackson.databind.ObjectMapper(),"","");
+        var cache=org.mockito.Mockito.mock(RecommendationCache.class);org.mockito.Mockito.when(cache.key(org.mockito.ArgumentMatchers.any())).thenReturn("key");org.mockito.Mockito.when(cache.get("key")).thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("model","cached"));gateway.setCache(cache);
+        assertEquals("cached",gateway.recommendations(new IdentityService.User(userId,"viewer"),profileId).path("model").asText());
+        org.mockito.Mockito.verify(jdbc,org.mockito.Mockito.never()).queryForList(org.mockito.ArgumentMatchers.startsWith("SELECT id::text"));
+    }
+    @Test void kafkaInboxDeduplicatesCommittedProjectionAfterReplay() throws Exception {
+        library.saveProgress(new IdentityService.User(userId,"viewer"),profileId,titleId,new Requests.Progress(10d,100d,.5d,false));
+        long id=db.queryForObject("SELECT id FROM activity_jobs",Long.class);
+        var kafka=org.mockito.Mockito.mock(org.springframework.kafka.core.KafkaTemplate.class);
+        var pipeline=new KafkaActivityPipeline(db,kafka,new com.fasterxml.jackson.databind.ObjectMapper(),new DataSourceTransactionManager(db.getDataSource()),new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),false);
+        var event=new KafkaActivityPipeline.Activity(id,profileId,titleId,"progress");String payload=new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(event);pipeline.consume(payload);pipeline.consume(payload);
+        assertEquals(1L,db.queryForObject("SELECT events FROM profile_activity WHERE profile_id=?",Long.class,profileId));assertEquals("done",db.queryForObject("SELECT state FROM activity_jobs WHERE id=?",String.class,id));
+    }
+
+    @Test void checkoutIntentPersistsAcrossRetryWithAnotherBrowserRequestId(){
+        var intents=new CheckoutIntents(db,new DataSourceTransactionManager(db.getDataSource()));var first=intents.begin(userId,"cinema",UUID.randomUUID());var retried=intents.begin(userId,"cinema",UUID.randomUUID());assertEquals(first.id(),retried.id());assertThrows(ApiException.class,()->intents.begin(userId,"collective",UUID.randomUUID()));
+        db.update("UPDATE checkout_requests SET created_at=now()-interval '24 hours' WHERE user_id=?",userId);assertThrows(ApiException.class,()->intents.begin(userId,"cinema",UUID.randomUUID()));
+    }
+
+    @Test void ambiguousStripeTimeoutReusesDurableIntentOnBrowserRefresh()throws Exception{
+        var billing=new BillingService(db,new com.fasterxml.jackson.databind.ObjectMapper(),"sk_test_fixture","whsec_fixture","https://aether.example","price_one","price_two","price_four");billing.setIntents(new CheckoutIntents(db,new DataSourceTransactionManager(db.getDataSource())));
+        var customer=new com.stripe.model.Customer();customer.setId("cus_fixture");var session=new com.stripe.model.checkout.Session();session.setId("cs_fixture");session.setUrl("https://checkout.stripe.com/test");session.setExpiresAt(java.time.Instant.now().plusSeconds(86400).getEpochSecond());var keys=new ArrayList<String>();
+        try(var customers=org.mockito.Mockito.mockStatic(com.stripe.model.Customer.class);var sessions=org.mockito.Mockito.mockStatic(com.stripe.model.checkout.Session.class)){
+            customers.when(()->com.stripe.model.Customer.create(org.mockito.ArgumentMatchers.any(com.stripe.param.CustomerCreateParams.class),org.mockito.ArgumentMatchers.any(com.stripe.net.RequestOptions.class))).thenReturn(customer);
+            sessions.when(()->com.stripe.model.checkout.Session.create(org.mockito.ArgumentMatchers.any(com.stripe.param.checkout.SessionCreateParams.class),org.mockito.ArgumentMatchers.any(com.stripe.net.RequestOptions.class))).thenAnswer(call->{keys.add(((com.stripe.net.RequestOptions)call.getArgument(1)).getIdempotencyKey());assertNull(((com.stripe.param.checkout.SessionCreateParams)call.getArgument(0)).getExpiresAt());if(keys.size()==1)throw org.mockito.Mockito.mock(com.stripe.exception.ApiConnectionException.class);return session;});
+            var user=new IdentityService.User(userId,"viewer");assertThrows(ApiException.class,()->billing.checkout(user,"cinema",UUID.randomUUID()));assertEquals(1,db.queryForObject("SELECT count(*) FROM checkout_requests WHERE user_id=? AND state='creating'",Integer.class,userId));assertEquals(session.getUrl(),billing.checkout(user,"cinema",UUID.randomUUID()));assertEquals(keys.get(0),keys.get(1));
+        }
+    }
 }

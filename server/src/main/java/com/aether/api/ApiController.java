@@ -30,6 +30,8 @@ public class ApiController {
         identity.requireUser(jwt);
         return library.catalog(limit,before,beforeId);
     }
+    @GetMapping("/api/catalog/{id}/episodes") public Object episodes(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID id){identity.requireUser(jwt);return library.episodes(id);}
+    @GetMapping("/api/profiles/{profileId}/reactions") public Object reactions(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID profileId){return library.reactions(identity.requireUser(jwt),profileId);}
     @GetMapping("/api/profiles/{profileId}/progress")
     public List<Map<String,Object>> progress(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID profileId) {
         return library.progress(identity.requireUser(jwt),profileId);
@@ -49,18 +51,14 @@ public class ApiController {
     public Map<String,Object> draft(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody Requests.Draft body) {
         return Map.of("id",library.createDraft(identity.requireUser(jwt),body),"status","draft");
     }
+    @GetMapping("/api/billing") public ResponseEntity<?> billing(@AuthenticationPrincipal Jwt jwt){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(billing.status(identity.requireUser(jwt)));}
     @PostMapping("/api/checkout")
     public Map<String,String> checkout(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody Requests.Checkout body) {
-        return Map.of("url",billing.checkout(identity.requireUser(jwt),body.plan()));
+        return Map.of("url",billing.checkout(identity.requireUser(jwt),body.plan(),body.requestId()));
     }
     @PostMapping("/api/billing/portal")
     public Map<String,String> portal(@AuthenticationPrincipal Jwt jwt) {
         return Map.of("url",billing.portal(identity.requireUser(jwt)));
-    }
-    @PostMapping("/api/playback/{titleId}")
-    public ResponseEntity<Map<String,String>> playback(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID titleId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-            .body(Map.of("hls",playback.authorize(identity.requireUser(jwt),titleId)));
     }
     /** Raw UTF-8 body is verified before deserializing any webhook business fields. */
     @PostMapping("/api/stripe/webhook")

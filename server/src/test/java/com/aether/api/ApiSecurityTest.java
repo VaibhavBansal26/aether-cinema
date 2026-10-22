@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /** Exercise actual filter-chain boundaries and bean validation without contacting providers. */
-@WebMvcTest(ApiController.class)
+@WebMvcTest({ApiController.class,PlaybackController.class})
 @Import({SecurityConfig.class,ErrorHandler.class,BodyLimitFilter.class})
 class ApiSecurityTest {
     @Autowired MockMvc http;
@@ -24,6 +24,7 @@ class ApiSecurityTest {
     @MockitoBean LibraryService library;
     @MockitoBean BillingService billing;
     @MockitoBean PlaybackService playback;
+    @MockitoBean PlaybackSessions sessions;
     @Test void livenessIsPublic() throws Exception { http.perform(get("/health")).andExpect(status().isOk()); }
     @Test void catalogRequiresBearer() throws Exception { http.perform(get("/api/catalog")).andExpect(status().isUnauthorized()); verifyNoInteractions(library); }
     @Test void anonymousAdminIsRejected() throws Exception {
@@ -47,8 +48,8 @@ class ApiSecurityTest {
     @Test void playbackUrlIsNotCacheable() throws Exception {
         var user=new IdentityService.User(UUID.randomUUID(),"viewer");
         when(identity.requireUser(any())).thenReturn(user);
-        when(playback.authorize(eq(user),any())).thenReturn("https://media.example/signed/manifest.m3u8");
-        http.perform(post("/api/playback/"+UUID.randomUUID()).with(jwt()))
+        when(playback.start(eq(user),any(),any(),any())).thenReturn(java.util.Map.of("hls","https://media.example/signed/manifest.m3u8"));
+        http.perform(post("/api/playback/"+UUID.randomUUID()).with(jwt()).contentType("application/json").content("{\"profileId\":\""+UUID.randomUUID()+"\",\"clientId\":\""+UUID.randomUUID()+"\"}"))
             .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"));
     }
     @Test void stripeWebhookDoesNotRequireJwtButStillInvokesSignatureVerifier() throws Exception {

@@ -24,6 +24,8 @@ public class RecommendationGateway {
     private final RestClient client;
     private final boolean configured;
     private final ObjectMapper json;
+    private final java.util.concurrent.Semaphore inference=new java.util.concurrent.Semaphore(4);
+    private final java.util.concurrent.ConcurrentHashMap<String,Boolean> filling=new java.util.concurrent.ConcurrentHashMap<>();
     public RecommendationGateway(JdbcTemplate db,IdentityService identity,ObjectMapper json,
         @Value("${app.recommender-url:}") String url,@Value("${app.recommender-token:}") String token) {
         this.db=db;this.identity=identity;this.json=json;
@@ -62,24 +64,38 @@ public class RecommendationGateway {
     /** ML service is private; end users cannot supply a policy or another profile's watch history. */
     public JsonNode recommendations(IdentityService.User user,UUID profileId) {
         identity.requireProfile(user,profileId);
-        List<Map<String,Object>> catalog=db.queryForList("SELECT id::text,name,left(synopsis,2000) AS synopsis,genre,kind,editorial_score FROM titles WHERE status='published' ORDER BY published_at DESC,id DESC LIMIT 500");
-        List<Map<String,Object>> history=db.queryForList("SELECT t.id::text AS title_id,coalesce(p.position_seconds,0) AS position,coalesce(p.duration_seconds,1) AS duration,coalesce(r.liked,false) AS liked,coalesce(r.saved,false) AS saved,greatest(coalesce(p.updated_at,to_timestamp(0)),coalesce(r.updated_at,to_timestamp(0))) AS updated_at FROM titles t LEFT JOIN playback p ON p.title_id=t.id AND p.profile_id=? LEFT JOIN reactions r ON r.title_id=t.id AND r.profile_id=? WHERE t.status='published' AND (p.title_id IS NOT NULL OR r.title_id IS NOT NULL) ORDER BY updated_at DESC LIMIT 1000",profileId,profileId);
-        // JDBC timestamps are normalized to ISO-8601, avoiding driver-specific JSON formats.
-        history.forEach(row->{ Object time=row.get("updated_at"); if(time instanceof java.sql.Timestamp stamp)row.put("updated_at",stamp.toInstant().toString()); });
         Map<String,Object> stored=policy();
+        Map<String,Object> versions=db.queryForMap("SELECT c.revision AS catalog,coalesce((SELECT revision FROM profile_revisions WHERE profile_id=?),0) AS profile FROM catalog_revision c WHERE id=1",profileId);
+        String cacheKey=cache==null?null:cache.key(Map.of("profile",profileId,"policy",stored,"versions",versions));
+        JsonNode cached=cache==null?null:cache.get(cacheKey);if(cached!=null)return cached;
+        List<Map<String,Object>> catalog=db.queryForList("SELECT id::text,name,left(synopsis,2000) AS synopsis,genre,kind,editorial_score FROM titles WHERE status='published' AND kind<>'episode' ORDER BY published_at DESC,id DESC LIMIT 500");
+        // Index-driven profile slices replace a join across the entire titles table. Episode taste maps to its series.
+        List<Map<String,Object>> history=db.queryForList("""
+            WITH recent AS (
+             SELECT title_id FROM (SELECT title_id FROM playback WHERE profile_id=? ORDER BY updated_at DESC LIMIT 1000) p
+             UNION SELECT title_id FROM (SELECT title_id FROM reactions WHERE profile_id=? ORDER BY updated_at DESC LIMIT 1000) r
+            ), interactions AS (
+             SELECT coalesce(t.series_id,t.id)::text AS title_id,coalesce(p.position_seconds,0) AS position,coalesce(p.duration_seconds,1) AS duration,
+             coalesce(r.liked,false) AS liked,coalesce(r.saved,false) AS saved,greatest(coalesce(p.updated_at,to_timestamp(0)),coalesce(r.updated_at,to_timestamp(0))) AS updated_at
+             FROM recent x JOIN titles t ON t.id=x.title_id LEFT JOIN playback p ON p.title_id=t.id AND p.profile_id=? LEFT JOIN reactions r ON r.title_id=t.id AND r.profile_id=? WHERE t.status='published'
+            ) SELECT DISTINCT ON (title_id) * FROM interactions ORDER BY title_id,updated_at DESC LIMIT 1000
+            """,profileId,profileId,profileId,profileId);
+        history.forEach(row->{Object time=row.get("updated_at");if(time instanceof java.sql.Timestamp stamp)row.put("updated_at",stamp.toInstant().toString());});
         Map<String,Object> llm=Map.of("enabled",stored.get("enabled"),"provider",stored.get("provider"),"model",stored.get("model"));
         var payload=Map.of("catalog",catalog,"interactions",history,"policy",llm,"row_size",8);
-        // Read policy from PostgreSQL on every request: disabled LLM results never reuse an enabled-policy key.
-        String cacheKey=cache==null?null:cache.key(Map.of("profile",profileId,"revision",stored.get("revision"),"payload",payload));
-        JsonNode cached=cache==null?null:cache.get(cacheKey);
-        if(cached!=null)return cached;
-        if(configured) {
+        if(configured&&inference.tryAcquire()) {
+            boolean owner=cacheKey==null||filling.putIfAbsent(cacheKey,true)==null;
             try {
+                if(!owner) return fallback(catalog,history);
                 JsonNode response=client.post().uri("/v1/recommendations").contentType(MediaType.APPLICATION_JSON)
                     .body(payload).retrieve().body(JsonNode.class);
                 if(response!=null&&response.path("rows").isArray()) { if(cache!=null)cache.put(cacheKey,response); return response; }
             } catch(RestClientException ignored) { /* Provider/service failure cannot prevent browsing. */ }
+            finally {if(owner&&cacheKey!=null)filling.remove(cacheKey);inference.release();}
         }
+        return fallback(catalog,history);
+    }
+    private JsonNode fallback(List<Map<String,Object>> catalog,List<Map<String,Object>> history){
         Set<String> completed=new HashSet<>();
         history.forEach(h->{if(((Number)h.get("position")).doubleValue()/((Number)h.get("duration")).doubleValue()>=.95)completed.add(h.get("title_id").toString());});
         var items=new ArrayList<Map<String,Object>>();

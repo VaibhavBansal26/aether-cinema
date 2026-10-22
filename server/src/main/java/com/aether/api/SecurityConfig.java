@@ -13,8 +13,8 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain security(HttpSecurity http) throws Exception {
-        return http.csrf(csrf -> csrf.disable()) // No cookie/session authentication; JWT is in Authorization.
+    SecurityFilterChain security(HttpSecurity http,AdmissionControl admission) throws Exception {
+        return http.addFilterAfter(admission,org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class).csrf(csrf -> csrf.disable()) // No cookie/session authentication; JWT is in Authorization.
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers(org.springframework.http.HttpMethod.GET,"/","/index.html","/style.css","/*.js","/assets/**","/api/auth/config").permitAll()
@@ -25,6 +25,9 @@ public class SecurityConfig {
             .oauth2ResourceServer(o -> o.jwt(j -> {}))
             .build();
     }
+
+    @Bean AdmissionControl admission(org.springframework.beans.factory.ObjectProvider<org.springframework.data.redis.core.StringRedisTemplate> redis,org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> metrics,@Value("${app.admission-enabled:false}") boolean enabled,@Value("${app.max-inflight:32}") int max){return new AdmissionControl(redis.getIfAvailable(),metrics.getIfAvailable(io.micrometer.core.instrument.simple.SimpleMeterRegistry::new),enabled,max);}
+    @Bean org.springframework.boot.web.servlet.FilterRegistrationBean<AdmissionControl> admissionRegistration(AdmissionControl filter){var bean=new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);bean.setEnabled(false);return bean;}
 
     /** Enforce issuer, expiry, signature AND intended API audience. No role is trusted from JWT claims. */
     @Bean

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 # Repeatable checksummed migration job; invoke with an explicit target and migration role.
-for path in /schema/schema.sql /schema/migrations/002_recommendations.sql /schema/migrations/003_infrastructure.sql /schema/migrations/004_video_publishing.sql; do
+for path in /schema/schema.sql /schema/migrations/*.sql; do
  version=$(basename "$path")
  checksum=$(sha256sum "$path" | cut -d ' ' -f 1)
  psql -v ON_ERROR_STOP=1 --single-transaction -v version="$version" -v checksum="$checksum" <<SQL

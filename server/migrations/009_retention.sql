@@ -1,0 +1,1 @@
+CREATE INDEX consumed_activity_retention ON consumed_activity_events(consumed_at);

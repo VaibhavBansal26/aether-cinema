@@ -7,3 +7,6 @@ recommender/.venv/
 __pycache__/
 .pytest_cache/
 recommender/models/
+
+.wrangler/
+.dev.vars*

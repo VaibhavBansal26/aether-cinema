@@ -1,0 +1,4 @@
+import http from 'k6/http';import {Counter} from 'k6/metrics';const allowed=new Counter('admitted'),limited=new Counter('rate_limited'),busy=new Counter('bulkhead_rejected');import {check} from 'k6';
+export const options={vus:50,duration:'10s',thresholds:{checks:['rate==1'],http_req_duration:['p(95)<2000']}};
+export function setup(){return http.get('http://oidc:8081/token?subject=load-100').json('access_token');}
+export default function(token){const r=http.get('http://scale-api:8080/api/catalog?limit=20',{headers:{Authorization:'Bearer '+token},responseCallback:http.expectedStatuses(200,429,503)});(r.status===200?allowed:r.status===429?limited:busy).add(1);check(r,{'bounded success or explicit backpressure':x=>[200,429,503].includes(x.status),'rejections include retry guidance':x=>x.status===200||!!x.headers['Retry-After']});}

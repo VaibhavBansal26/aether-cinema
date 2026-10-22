@@ -3,13 +3,14 @@ WORKDIR /build
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY frontend ./frontend
-RUN npm run build:auth
+RUN npm run build:auth && npm run build:player
 FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /build
 COPY server/pom.xml .
 COPY server/src ./src
 COPY dist ./src/main/resources/static
 COPY --from=frontend /build/dist/auth-client.js ./src/main/resources/static/auth-client.js
+COPY --from=frontend /build/dist/adaptive-player.js ./src/main/resources/static/adaptive-player.js
 RUN mvn -B -ntp verify
 FROM eclipse-temurin:21-jre
 WORKDIR /app

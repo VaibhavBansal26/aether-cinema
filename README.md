@@ -61,3 +61,9 @@ Admin video publishing is available under **Creator studio → Open video publis
 A complete disposable local backend stack is available in [LOCAL-STACK.md](docs/LOCAL-STACK.md). It includes a test-only JWT signer and must never be publicly deployed.
 
 Managed sign-in, account bootstrap and role boundaries are documented in [AUTHENTICATION.md](docs/AUTHENTICATION.md). The combined frontend/API image is built with `docker build -f deploy/Dockerfile .`.
+
+## Scaling controls and private R2 budgets
+
+Implemented: account-wide playback leases and stream limits, distributed Redis request budgets, bounded API/inference admission, revision-based recommendation caching before history loading, indexed profile-history queries, durable Kafka outbox/inbox consumers, poison-record dead letters, real movie/episode catalog integration, Stripe checkout intents, and lazy HLS adaptive playback. See [Kafka and scaling](docs/KAFKA-AND-SCALE.md).
+
+[Private R2 cost controls](docs/R2-BUDGETS.md) reserve no more than 8 GB and stop Class A/B operations at conservative ceilings. Admin usage endpoints track UTC cycle dates, automatic operation renewal and a rolling safety window; storage does not reset monthly. `tools/encode_hls.py` prepares local GB originals for the private gateway. Cloudflare account connection is a separate deployment step; local emulator tests do not prove account-wide billing protection. The paid Stream adapter is disabled by default.

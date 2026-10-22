@@ -22,6 +22,6 @@ public class AccountService {
    db.update("INSERT INTO profiles(id,user_id,name) VALUES(?,?,'Main')",UUID.randomUUID(),id);
    profiles=db.queryForList("SELECT id,name FROM profiles WHERE user_id=? ORDER BY id",id);
   }
-  return Map.of("user",user,"profiles",profiles,"titles",db.queryForList("SELECT id,name FROM titles WHERE status='published' ORDER BY published_at DESC LIMIT 500"));
+  return Map.of("user",user,"profiles",profiles,"titles",List.of());
  }
 }

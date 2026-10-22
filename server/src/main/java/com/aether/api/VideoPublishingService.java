@@ -16,14 +16,15 @@ public class VideoPublishingService {
  public VideoPublishingService(JdbcTemplate db,IdentityService identity,CloudflareVideoClient provider){this.db=db;this.identity=identity;this.provider=provider;}
  public Map<String,Object> list(IdentityService.User user){
   identity.requireAdmin(user);
-  return Map.of("configured",provider.configured(),"titles",db.queryForList("SELECT id,name,genre,status,media_state,media_ready,encoding_percent,media_checked_at FROM titles ORDER BY coalesce(published_at,'epoch') DESC,id LIMIT 100"));
+  return Map.of("configured",provider.configured(),"titles",db.queryForList("SELECT id,name,genre,kind,series_id,season_number,episode_number,status,media_state,media_ready,encoding_percent,media_checked_at FROM titles ORDER BY coalesce(published_at,'epoch') DESC,id LIMIT 100"));
  }
- private Map<String,Object> title(UUID id){return db.queryForList("SELECT id,name,status,stream_uid FROM titles WHERE id=?",id).stream().findFirst().orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Title not found"));}
+ private Map<String,Object> title(UUID id){return db.queryForList("SELECT id,name,kind,status,stream_uid FROM titles WHERE id=?",id).stream().findFirst().orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Title not found"));}
  /** A row lock prevents concurrent requests allocating two upload slots for one draft. */
  @Transactional(timeout=20)
  public CloudflareVideoClient.Upload upload(IdentityService.User user,UUID id,UploadRequest request){
   identity.requireAdmin(user);
-  var row=db.queryForList("SELECT id,name,status,stream_uid FROM titles WHERE id=? FOR UPDATE",id).stream().findFirst().orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Title not found"));
+  var row=db.queryForList("SELECT id,name,kind,status,stream_uid FROM titles WHERE id=? FOR UPDATE",id).stream().findFirst().orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Title not found"));
+  if("series".equals(row.get("kind")))throw new ApiException(HttpStatus.CONFLICT,"Upload each episode separately; a series is a collection");
   if(!"draft".equals(row.get("status"))||row.get("stream_uid")!=null)throw new ApiException(HttpStatus.CONFLICT,"Choose an empty draft; this title already has a video or is published");
   var upload=provider.create(request.bytes(),request.maxDurationSeconds(),row.get("name").toString());
   db.update("UPDATE titles SET stream_uid=?,status='processing',media_state='pendingupload',media_ready=false WHERE id=?",upload.uid(),id);
@@ -47,6 +48,12 @@ public class VideoPublishingService {
  public Map<String,String> publish(IdentityService.User user,UUID id,PublishRequest review){
   identity.requireAdmin(user);
   if(!Boolean.TRUE.equals(review.rightsReviewed())||!Boolean.TRUE.equals(review.captionsReviewed()))throw new ApiException(HttpStatus.BAD_REQUEST,"Complete the publishing review");
+  var row=title(id);
+  if("series".equals(row.get("kind"))){
+   if(db.queryForObject("SELECT count(*) FROM titles WHERE series_id=? AND status='published'",Integer.class,id)<1)throw new ApiException(HttpStatus.CONFLICT,"Publish at least one encoded episode first");
+   if(db.update("UPDATE titles SET status='published',published_at=now() WHERE id=? AND status='draft'",id)!=1)throw new ApiException(HttpStatus.CONFLICT,"Series is not a draft");
+   db.update("INSERT INTO audit_log(actor,action,title_id) VALUES(?,'series.publish.reviewed',?)",user.id(),id);return Map.of("status","published");
+  }
   var state=refresh(user,id);
   if(!state.ready()||state.percent()<100)throw new ApiException(HttpStatus.CONFLICT,"Wait for all video renditions to finish processing");
   int changed=db.update("UPDATE titles SET status='published',published_at=now() WHERE id=? AND status='review'",id);

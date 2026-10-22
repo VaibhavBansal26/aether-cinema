@@ -21,4 +21,9 @@ class RedisIntegrationTest {
    redis.delete(key);
   } finally {factory.destroy();}
  }
+
+ @Test void twoReplicasShareOneAtomicRedisBudget(){
+  var factory=new LettuceConnectionFactory(System.getenv("TEST_REDIS_HOST"),6379);factory.afterPropertiesSet();factory.start();
+  try{var redis=new StringRedisTemplate(factory);var a=new AdmissionControl(redis,new SimpleMeterRegistry(),true,2);var b=new AdmissionControl(redis,new SimpleMeterRegistry(),true,2);String key=java.util.UUID.randomUUID().toString();for(int i=0;i<10;i++)assertTrue((i%2==0?a:b).allow(key,10));assertFalse(a.allow(key,10));assertFalse(b.allow(key,10));}finally{factory.destroy();}
+ }
 }

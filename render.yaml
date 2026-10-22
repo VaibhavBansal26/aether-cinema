@@ -42,6 +42,12 @@ services:
         fromService: {name: aether-api-demo, type: web, envVarKey: RENDER_EXTERNAL_URL}
       - key: RECOMMENDER_URL
         fromService: {name: aether-recommender-demo, type: web, envVarKey: RENDER_EXTERNAL_URL}
+      - key: ADMISSION_ENABLED
+        value: 'true'
+      - key: R2_MEDIA_ORIGIN
+        value: https://aether-private-media.vaibhav-bansal2020.workers.dev
+      - key: PAID_MEDIA_ENABLED
+        value: 'false'
       - key: WORKER_ENABLED
         value: 'true'
       - key: RECOMMENDATION_CACHE_ENABLED

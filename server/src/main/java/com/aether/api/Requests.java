@@ -17,8 +17,12 @@ public final class Requests {
         }
     }
     public record Reaction(@NotNull Boolean liked, @NotNull Boolean saved) {}
-    public record Checkout(@NotBlank @Pattern(regexp="essential|cinema|collective") String plan) {}
+    public record Checkout(@NotBlank @Pattern(regexp="essential|cinema|collective") String plan,@NotNull java.util.UUID requestId) {}
     public record Draft(@NotBlank @Size(max=120) String name,
                         @NotBlank @Size(max=5000) String synopsis,
-                        @NotNull @Pattern(regexp="Drama|Adventure|Documentary|Sci-Fi|Thriller") String genre) {}
+                        @NotNull @Pattern(regexp="Drama|Adventure|Documentary|Sci-Fi|Thriller") String genre,
+                        @Pattern(regexp="films|series|episode") String kind,java.util.UUID seriesId,@Min(1) @Max(1000) Integer seasonNumber,@Min(1) @Max(10000) Integer episodeNumber,
+                        @Pattern(regexp="signal-hero.jpg|neon-poster.jpg|wild-poster.jpg|orbit-poster.jpg|coast-poster.jpg") String poster) {
+        public Draft(String name,String synopsis,String genre){this(name,synopsis,genre,"films",null,null,null,"signal-hero.jpg");}
+    }
 }

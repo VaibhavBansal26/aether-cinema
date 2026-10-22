@@ -29,8 +29,10 @@ public class CloudflareVideoClient {
         client=RestClient.builder().baseUrl("https://api.cloudflare.com/client/v4").requestFactory(factory)
             .defaultHeader(HttpHeaders.AUTHORIZATION,"Bearer "+token).build();
     }
-    public boolean configured(){return configured;}
-    private void requireConfigured(){if(!configured)throw new ApiException(HttpStatus.CONFLICT,"Configure Cloudflare Stream on the server before uploading");}
+    private boolean paidMediaEnabled=true;
+    @org.springframework.beans.factory.annotation.Autowired public void paidMedia(@Value("${app.paid-media-enabled:false}") boolean enabled){paidMediaEnabled=enabled;}
+    public boolean configured(){return configured&&paidMediaEnabled;}
+    private void requireConfigured(){if(!configured())throw new ApiException(HttpStatus.CONFLICT,"Configure Cloudflare Stream on the server before uploading");}
     private String path(){return "/accounts/"+account+"/stream";}
     private static String encoded(String value){return Base64.getEncoder().encodeToString(value.getBytes(StandardCharsets.UTF_8));}
     /** TUS is mandatory for large files. Require signed playback from the moment the upload is reserved. */
@@ -65,11 +67,17 @@ public class CloudflareVideoClient {
                 result.path("readyToStream").asBoolean()&&result.path("requireSignedURLs").asBoolean(),Math.max(0,Math.min(100,pct)));
         }catch(RestClientException|IllegalArgumentException e){throw new ApiException(HttpStatus.BAD_GATEWAY,"Unable to verify video processing with Cloudflare");}
     }
-    public Map<String,String> playback(String uid) {
+    public Map<String,String> playback(String uid) {return playback(uid,Instant.now().plusSeconds(120));}
+    private StreamSigner signer;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void signing(@org.springframework.beans.factory.annotation.Value("${app.cf-signing-key-id:}") String kid,@org.springframework.beans.factory.annotation.Value("${app.cf-signing-private-key:}") String key){if(!kid.isBlank()&&!key.isBlank())signer=new StreamSigner(kid,key);}
+    public Map<String,String> playback(String uid,Instant expiry) {
         requireConfigured();
+        if(!uid.matches("[a-fA-F0-9]{32}"))throw new ApiException(HttpStatus.CONFLICT,"Invalid media identifier");
+        if(signer!=null){String base="https://customer-"+customer+".cloudflarestream.com/"+signer.sign(uid,expiry);return Map.of("iframe",base+"/iframe","hls",base+"/manifest/video.m3u8","dash",base+"/manifest/video.mpd");}
         try {
             JsonNode body=client.post().uri(path()+"/"+uid+"/token").contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("exp",Instant.now().plusSeconds(900).getEpochSecond())).retrieve().body(JsonNode.class);
+                .body(Map.of("exp",expiry.getEpochSecond())).retrieve().body(JsonNode.class);
             String token=body==null?"":body.path("result").path("token").asText("");
             if(token.isBlank()||!token.matches("[A-Za-z0-9_.-]+"))throw new IllegalArgumentException();
             String base="https://customer-"+customer+".cloudflarestream.com/"+token;

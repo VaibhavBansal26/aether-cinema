@@ -6,7 +6,31 @@ server:
     include-stacktrace: never
   tomcat:
     max-http-form-post-size: 32KB
+    threads:
+      max: ${HTTP_MAX_THREADS:64}
+      min-spare: 4
+    accept-count: ${HTTP_ACCEPT_COUNT:64}
+    max-connections: ${HTTP_MAX_CONNECTIONS:512}
 spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 5000
+        request.timeout.ms: 3000
+        max.block.ms: 3000
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      max-poll-records: 100
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
   application:
     name: aether-api
   lifecycle:
@@ -48,6 +72,17 @@ management:
         readiness:
           include: readinessState,db
 app:
+  paid-media-enabled: ${PAID_MEDIA_ENABLED:false}
+  r2-media-origin: ${R2_MEDIA_ORIGIN:}
+  r2-media-secret: ${R2_MEDIA_CAPABILITY_SECRET:}
+  kafka-enabled: ${KAFKA_ENABLED:false}
+  kafka-publisher-enabled: ${KAFKA_PUBLISHER_ENABLED:false}
+  kafka-consumer-enabled: ${KAFKA_CONSUMER_ENABLED:false}
+  kafka-replication-factor: ${KAFKA_REPLICATION_FACTOR:3}
+  admission-enabled: ${ADMISSION_ENABLED:false}
+  max-inflight: ${API_MAX_INFLIGHT:32}
+  cf-signing-key-id: ${CF_SIGNING_KEY_ID:}
+  cf-signing-private-key: ${CF_SIGNING_PRIVATE_KEY:}
   neon-auth-url: ${NEON_AUTH_URL:}
   oidc-algorithm: ${OIDC_ALGORITHM:RS256}
   worker-enabled: ${WORKER_ENABLED:false}
