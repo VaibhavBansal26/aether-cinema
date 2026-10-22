@@ -1,5 +1,11 @@
 # Deliberately separate from the production profile. Render free resources are disposable demos.
+server:
+  forward-headers-strategy: native
 spring:
+  data:
+    redis:
+      connect-timeout: 3s
+      timeout: 2s
   datasource:
     url: jdbc:postgresql://${RENDER_DB_HOST}:${RENDER_DB_PORT:5432}/${RENDER_DB_NAME}?sslmode=require
     hikari:

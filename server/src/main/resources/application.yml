@@ -70,7 +70,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db
+          include: readinessState,db,redis
 app:
   paid-media-enabled: ${PAID_MEDIA_ENABLED:false}
   r2-media-origin: ${R2_MEDIA_ORIGIN:}

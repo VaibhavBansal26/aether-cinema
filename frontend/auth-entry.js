@@ -51,7 +51,7 @@ export async function openAccountControls({modal,toast,onMembership,message,isAc
   try{const email=document.querySelector('#accountEmail').value.trim(),password=document.querySelector('#accountPassword').value,name=document.querySelector('#accountName').value.trim();
    const result=signup?await client.signUp.email({email,password,name}):await client.signIn.email({email,password});
    if(result.error){const message=result.error.message||'Sign-in failed.';throw new Error(signup&&/already.exists|already.registered|USER_ALREADY/i.test(message+' '+result.error.code)?'An account already exists for this email. Choose Sign in.':message);}await connect();if(!form.isConnected)return;form.reset();toast(signup?'Account created. You are signed in.':'You are signed in');await openAccountControls({...options,message:signup?'Account created successfully. You are signed in.':'Signed in successfully.'});
-  }catch(error){if(form.isConnected){status.textContent=error.message;fields.disabled=false;document.querySelector('#signinMode').disabled=false;document.querySelector('#signupMode').disabled=false;}}
+  }catch(error){if(form.isConnected){status.textContent=/503|timeout|network|fetch/i.test(error.message)?(signup?'Account creation could not be confirmed. Wait a moment, then try Sign in before creating another account.':'Sign-in is temporarily unavailable. Please wait a moment and try again.'):error.message;fields.disabled=false;document.querySelector('#signinMode').disabled=false;document.querySelector('#signupMode').disabled=false;}}
  };
  mode(false);if(message)status.textContent=message;
 }

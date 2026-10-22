@@ -9,7 +9,7 @@ services:
     region: oregon
     dockerfilePath: ./deploy/Dockerfile
     dockerContext: .
-    healthCheckPath: /health
+    healthCheckPath: /actuator/health/readiness
     envVars:
       - fromGroup: aether-demo-secrets
       - key: SPRING_PROFILES_ACTIVE

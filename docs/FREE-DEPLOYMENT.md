@@ -25,3 +25,7 @@ References: [Render free services](https://render.com/docs/free), [Blueprint spe
 ## Staged provisioning
 
 If login-provider settings are still pending, use Blueprint Path `deploy/render-foundation.yaml` to create only the free database, cache, shared-secret group and Python inference service. It accepts no user history without the shared service credential. Once trusted authentication is configured, change the same Blueprint instance to the root `render.yaml` to add the API, preserving the existing resource names. Do not remove resources from an existing Blueprint without reviewing the plan.
+
+## Authentication startup protection
+
+The API health check uses `/actuator/health/readiness`, requiring both PostgreSQL and Redis before a new instance receives traffic. Liveness stays separate. The free demo profile allows a bounded three-second Redis connection and two-second command timeout, rather than the 200 ms production default; overload still uses the bulkhead and fails closed. Tomcat native forwarded-header handling resolves client addresses through the trusted internal ingress instead of rate-limiting every anonymous viewer under the proxy address. Verify ingress/header trust before moving this profile to another host. Authentication failures show retry guidance rather than an unexplained HTTP 503.
