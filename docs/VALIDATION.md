@@ -58,3 +58,11 @@ The same-origin identity proxy passed request-origin, cookie isolation, secure c
 Public HTTPS API verification passed: auth configuration, real managed sign-in/cookie session/token, idempotent viewer bootstrap, unauthenticated 401, viewer/admin 403, DB readiness and confirmed sign-out. The warm Python service returned `model=tfidf-v1`, `llm_status=disabled`; a cold request returned the documented editorial fallback. The cloud catalog contains no published films, so this does not validate ranking quality or real media playback.
 
 Browser proof: `screenshots/18-cloud-session-restored.png` shows the restored Viewer account with empty credential fields after page reload on the public HTTPS deployment.
+
+## Distributed controls and private R2 gateway — October 22, 2026 UTC
+
+The full backend suite passed 67 tests with zero failures, errors or skips using real disposable PostgreSQL, Redis and Python. Six frontend tests and seven gateway tests passed. The gateway tests use the real local workerd Durable Object/SQLite and R2 emulator. A targeted backend rerun passed after adding the Cloudflare-compatible client identification.
+
+Two local API replicas with real Kafka completed 1,454 staged requests with zero HTTP failures and 53.72 ms p95. The overload test exercised rejection/backpressure; its rejected request count is not successful throughput. Broker, Redis and Python outage checks passed. A real malformed Kafka record reached `aether.activity.v1.DLT`; duplicate event delivery did not change the existing projection count. Query microbenchmark details and production gates are in `KAFKA-AND-SCALE.md`.
+
+The private Cloudflare gateway successfully reserved and uploaded a synthetic four-asset, 592,684-byte HLS bundle, completed it, and returned its signed playlist. The durable ledger recorded four Class A and one Class B operations. This validates a small live storage path, not GB transfers or a million concurrent viewers. The billing day is unverified and explicitly reported as `calendar-estimate`; rolling 35-day guardrails remain active. See `R2-BUDGETS.md` for limits and account-wide billing caveats. Cloud PostgreSQL migrations through 009 were applied before the application release.
