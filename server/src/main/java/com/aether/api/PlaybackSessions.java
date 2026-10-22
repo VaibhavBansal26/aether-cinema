@@ -18,7 +18,7 @@ public class PlaybackSessions {
   if(limits.isEmpty())throw new ApiException(HttpStatus.FORBIDDEN,"An active membership is required");return limits.getFirst();
  }
  private String media(UUID title){
-  var rows=db.queryForList("SELECT stream_uid FROM titles WHERE id=? AND status='published' AND media_ready=true AND kind<>'series'",String.class,title);
+  var rows=db.queryForList("SELECT t.stream_uid FROM titles t WHERE t.id=? AND t.status='published' AND t.published_at<=now() AND t.media_ready=true AND t.kind<>'series' AND (t.kind<>'episode' OR EXISTS(SELECT 1 FROM titles s WHERE s.id=t.series_id AND s.status='published' AND s.published_at<=now()))",String.class,title);
   if(rows.isEmpty()||rows.getFirst()==null)throw new ApiException(HttpStatus.CONFLICT,"This video is not ready");return rows.getFirst();
  }
  /** A stable per-tab client ID makes retried starts idempotent; never trust a client-provided stream count. */

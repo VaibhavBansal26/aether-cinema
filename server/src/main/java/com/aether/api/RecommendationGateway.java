@@ -68,7 +68,7 @@ public class RecommendationGateway {
         Map<String,Object> versions=db.queryForMap("SELECT c.revision AS catalog,coalesce((SELECT revision FROM profile_revisions WHERE profile_id=?),0) AS profile FROM catalog_revision c WHERE id=1",profileId);
         String cacheKey=cache==null?null:cache.key(Map.of("profile",profileId,"policy",stored,"versions",versions));
         JsonNode cached=cache==null?null:cache.get(cacheKey);if(cached!=null)return cached;
-        List<Map<String,Object>> catalog=db.queryForList("SELECT id::text,name,left(synopsis,2000) AS synopsis,genre,kind,editorial_score FROM titles WHERE status='published' AND kind<>'episode' ORDER BY published_at DESC,id DESC LIMIT 500");
+        List<Map<String,Object>> catalog=db.queryForList("SELECT id::text,name,left(synopsis,2000) AS synopsis,genre,kind,editorial_score FROM titles WHERE status='published' AND published_at<=now() AND kind<>'episode' ORDER BY published_at DESC,id DESC LIMIT 500");
         // Index-driven profile slices replace a join across the entire titles table. Episode taste maps to its series.
         List<Map<String,Object>> history=db.queryForList("""
             WITH recent AS (
@@ -77,7 +77,7 @@ public class RecommendationGateway {
             ), interactions AS (
              SELECT coalesce(t.series_id,t.id)::text AS title_id,coalesce(p.position_seconds,0) AS position,coalesce(p.duration_seconds,1) AS duration,
              coalesce(r.liked,false) AS liked,coalesce(r.saved,false) AS saved,greatest(coalesce(p.updated_at,to_timestamp(0)),coalesce(r.updated_at,to_timestamp(0))) AS updated_at
-             FROM recent x JOIN titles t ON t.id=x.title_id LEFT JOIN playback p ON p.title_id=t.id AND p.profile_id=? LEFT JOIN reactions r ON r.title_id=t.id AND r.profile_id=? WHERE t.status='published'
+             FROM recent x JOIN titles t ON t.id=x.title_id LEFT JOIN playback p ON p.title_id=t.id AND p.profile_id=? LEFT JOIN reactions r ON r.title_id=t.id AND r.profile_id=? WHERE t.status='published' AND t.published_at<=now()
             ) SELECT DISTINCT ON (title_id) * FROM interactions ORDER BY title_id,updated_at DESC LIMIT 1000
             """,profileId,profileId,profileId,profileId);
         history.forEach(row->{Object time=row.get("updated_at");if(time instanceof java.sql.Timestamp stamp)row.put("updated_at",stamp.toInstant().toString());});

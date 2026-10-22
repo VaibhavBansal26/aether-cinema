@@ -18,8 +18,8 @@ public class LibraryService {
     public List<Map<String,Object>> catalog(int limit, OffsetDateTime before, UUID beforeId) {
         if (limit < 1 || limit > 50 || (before == null) != (beforeId == null))
             throw new ApiException(HttpStatus.BAD_REQUEST, "Use limit 1–50 and both cursor fields together");
-        if (before == null) return db.queryForList("SELECT id,name,synopsis,genre,kind,poster,published_at FROM titles WHERE status='published' AND kind<>'episode' ORDER BY published_at DESC,id DESC LIMIT ?", limit);
-        return db.queryForList("SELECT id,name,synopsis,genre,kind,poster,published_at FROM titles WHERE status='published' AND kind<>'episode' AND (published_at,id)<(?,?) ORDER BY published_at DESC,id DESC LIMIT ?", before, beforeId, limit);
+        if (before == null) return db.queryForList("SELECT id,name,synopsis,genre,kind,poster,published_at FROM titles WHERE status='published' AND published_at<=now() AND kind<>'episode' ORDER BY published_at DESC,id DESC LIMIT ?", limit);
+        return db.queryForList("SELECT id,name,synopsis,genre,kind,poster,published_at FROM titles WHERE status='published' AND published_at<=now() AND kind<>'episode' AND (published_at,id)<(?,?) ORDER BY published_at DESC,id DESC LIMIT ?", before, beforeId, limit);
     }
 
     public List<Map<String,Object>> progress(IdentityService.User user, UUID profileId) {
@@ -50,7 +50,7 @@ public class LibraryService {
     }
 
     public List<Map<String,Object>> reactions(IdentityService.User user,UUID profile){identity.requireProfile(user,profile);return db.queryForList("SELECT title_id,liked,saved FROM reactions WHERE profile_id=? ORDER BY updated_at DESC LIMIT 1000",profile);}
-    public List<Map<String,Object>> episodes(UUID series){return db.queryForList("SELECT e.id,e.name,e.synopsis,e.genre,e.kind,e.poster,e.season_number,e.episode_number FROM titles e JOIN titles s ON s.id=e.series_id WHERE s.id=? AND s.status='published' AND e.status='published' ORDER BY e.season_number,e.episode_number LIMIT 500",series);}
+    public List<Map<String,Object>> episodes(UUID series){return db.queryForList("SELECT e.id,e.name,e.synopsis,e.genre,e.kind,e.poster,e.season_number,e.episode_number FROM titles e JOIN titles s ON s.id=e.series_id WHERE s.id=? AND s.status='published' AND s.published_at<=now() AND e.status='published' AND e.published_at<=now() ORDER BY e.season_number,e.episode_number LIMIT 500",series);}
 
     /** Role authorization and the audit row share the draft transaction. */
     @Transactional

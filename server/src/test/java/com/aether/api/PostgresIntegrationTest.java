@@ -31,6 +31,7 @@ class PostgresIntegrationTest {
         db.execute(Files.readString(Path.of("migrations/007_r2_bundles.sql")));
         db.execute(Files.readString(Path.of("migrations/008_checkout_intents.sql")));
         db.execute(Files.readString(Path.of("migrations/009_retention.sql")));
+        db.execute(Files.readString(Path.of("migrations/010_release_schedule.sql")));
     }
     @BeforeEach void seed() {
         db.execute("TRUNCATE audit_log,stripe_events,playback,reactions,profiles,subscriptions,titles,users CASCADE");
@@ -203,5 +204,39 @@ class PostgresIntegrationTest {
             sessions.when(()->com.stripe.model.checkout.Session.create(org.mockito.ArgumentMatchers.any(com.stripe.param.checkout.SessionCreateParams.class),org.mockito.ArgumentMatchers.any(com.stripe.net.RequestOptions.class))).thenAnswer(call->{keys.add(((com.stripe.net.RequestOptions)call.getArgument(1)).getIdempotencyKey());assertNull(((com.stripe.param.checkout.SessionCreateParams)call.getArgument(0)).getExpiresAt());if(keys.size()==1)throw org.mockito.Mockito.mock(com.stripe.exception.ApiConnectionException.class);return session;});
             var user=new IdentityService.User(userId,"viewer");assertThrows(ApiException.class,()->billing.checkout(user,"cinema",UUID.randomUUID()));assertEquals(1,db.queryForObject("SELECT count(*) FROM checkout_requests WHERE user_id=? AND state='creating'",Integer.class,userId));assertEquals(session.getUrl(),billing.checkout(user,"cinema",UUID.randomUUID()));assertEquals(keys.get(0),keys.get(1));
         }
+    }
+    @Test void scheduledEpisodeStaysPrivateAndReleasesOnceAfterDeadline(){
+        UUID series=UUID.randomUUID(),episode=UUID.randomUUID();
+        db.update("INSERT INTO titles(id,name,synopsis,genre,kind,status,published_at) VALUES(?,'Series','Story','Drama','series','published',now())",series);
+        db.update("INSERT INTO titles(id,name,synopsis,genre,kind,series_id,season_number,episode_number,status,published_at,stream_uid,media_ready) VALUES(?,'Episode','Story','Drama','episode',?,1,2,'scheduled',now()+interval '1 hour','r2:test',true)",episode,series);
+        assertTrue(library.episodes(series).isEmpty());
+        db.update("INSERT INTO subscriptions(user_id,customer_id,status) VALUES(?,'cus_schedule','active')",userId);
+        var sessions=new PlaybackSessions(db,new IdentityService(db),library);var viewer=new IdentityService.User(userId,"viewer");
+        assertThrows(ApiException.class,()->transactions.execute(status->sessions.acquire(viewer,profileId,episode,UUID.randomUUID())));
+        var scheduler=new PublicationSchedule(db,new IdentityService(db));assertEquals(0,scheduler.releaseDue());
+        db.update("UPDATE titles SET published_at=now()-interval '1 second' WHERE id=?",episode);
+        assertEquals(1,scheduler.releaseDue());assertEquals(0,scheduler.releaseDue());assertEquals(1,library.episodes(series).size());
+        assertNotNull(transactions.execute(status->sessions.acquire(viewer,profileId,episode,UUID.randomUUID())));
+        assertEquals(1,db.queryForObject("SELECT count(*) FROM audit_log WHERE title_id=? AND action='release.scheduled'",Integer.class,episode));
+        db.update("UPDATE titles SET published_at=now()+interval '1 hour' WHERE id=?",series);
+        assertTrue(library.episodes(series).isEmpty());assertThrows(ApiException.class,()->transactions.execute(status->sessions.acquire(viewer,profileId,episode,UUID.randomUUID())));
+    }
+    @Test void scheduleChangesRequireAdminAndAReviewedScheduledRecord(){
+        var scheduler=new PublicationSchedule(db,new IdentityService(db));var at=java.time.Instant.now().plusSeconds(7200);
+        assertThrows(ApiException.class,()->scheduler.reschedule(new IdentityService.User(userId,"viewer"),titleId,at,"UTC"));
+        assertThrows(ApiException.class,()->scheduler.reschedule(new IdentityService.User(userId,"admin"),titleId,at,"UTC"));
+        db.update("UPDATE titles SET status='scheduled',published_at=now()+interval '1 hour' WHERE id=?",titleId);
+        assertEquals("scheduled",transactions.execute(status->scheduler.reschedule(new IdentityService.User(userId,"admin"),titleId,at,"America/New_York")).get("status"));
+        assertTrue(library.catalog(10,null,null).isEmpty());
+        assertEquals("published",transactions.execute(status->scheduler.reschedule(new IdentityService.User(userId,"admin"),titleId,null,"UTC")).get("status"));
+        assertEquals(1,library.catalog(10,null,null).size());
+    }
+    @Test void adminDraftsRemainSelectableWhenPublishedCatalogExceedsOnePage(){
+        db.update("INSERT INTO titles(id,name,synopsis,genre,status,published_at) SELECT gen_random_uuid(),'Published '||n,'Story','Drama','published',now() FROM generate_series(1,110) n");
+        var admin=new IdentityService.User(userId,"admin");UUID draft=library.createDraft(admin,new Requests.Draft("New draft","Story","Drama"));
+        UUID series=library.createDraft(admin,new Requests.Draft("Series","Story","Drama","series",null,null,null,"signal-hero.jpg"));
+        var provider=org.mockito.Mockito.mock(CloudflareVideoClient.class);var result=new VideoPublishingService(db,new IdentityService(db),provider).list(admin);
+        assertTrue(((List<Map<String,Object>>)result.get("titles")).stream().anyMatch(row->draft.equals(row.get("id"))));
+        assertTrue(((List<Map<String,Object>>)result.get("series")).stream().anyMatch(row->series.equals(row.get("id"))));
     }
 }
