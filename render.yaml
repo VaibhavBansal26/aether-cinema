@@ -37,7 +37,7 @@ services:
       - key: APP_ORIGIN
         sync: false
       - key: RECOMMENDER_URL
-        sync: false
+        fromService: {name: aether-recommender-demo, type: web, envVarKey: RENDER_EXTERNAL_URL}
       - key: WORKER_ENABLED
         value: 'true'
       - key: RECOMMENDATION_CACHE_ENABLED

@@ -1,0 +1,34 @@
+# Stage 1: free data/cache/inference resources. API is added from root render.yaml after auth is configured.
+services:
+  - type: web
+    name: aether-recommender-demo
+    runtime: docker
+    repo: https://github.com/VaibhavBansal26/aether-cinema
+    branch: main
+    plan: free
+    region: oregon
+    dockerfilePath: ./recommender/Dockerfile
+    dockerContext: ./recommender
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: aether-demo-secrets
+      - key: PORT
+        value: '8090'
+  - type: keyvalue
+    name: aether-demo-cache
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+databases:
+  - name: aether-demo-db
+    plan: free
+    region: oregon
+    databaseName: aether
+    user: aether_demo
+    postgresMajorVersion: '16'
+envVarGroups:
+  - name: aether-demo-secrets
+    envVars:
+      - key: RECOMMENDER_SERVICE_TOKEN
+        generateValue: true
