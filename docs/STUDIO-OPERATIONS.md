@@ -35,3 +35,16 @@ Apply migration `011_studio_operations.sql` before deploying the matching server
 Publishing workflow safeguards: the selected title shows a prominent PUBLISHED, SCHEDULED or DRAFT badge. Add episode locks the parent series and content type; a successful draft creation selects that episode. Details, upload and review gates must pass before advancing. Episode numbers are unique among non-archived episodes of the same series and season.
 
 DELETE /api/admin/titles/{id} archives the title, ends its playback leases and hides it from the catalog and publishing selector. It preserves media, history and storage reservations. Collections must have their episodes archived first. Migration 012 permits reuse of archived episode numbers. No media storage is reclaimed by this operation.
+
+
+## Content Library
+Open Creator dashboard → Content library, or `/#content-library` after signing in as admin. This is a dedicated page, separate from the upload wizard. It lists 50 records per page (including archived titles), with type/status filters and a search over the displayed page. Each episode shows its parent collection name, ID, season and episode number.
+
+- Hide: published → hidden, preserving publication time and relationships; releases active playback leases for the title and its episodes. Existing short-lived signed media capabilities expire naturally.
+- Show: hidden → published. A draft cannot use Show to bypass upload/review. An episode also requires a visible, published parent.
+- Delete: moves into a recoverable archive; storage and history remain allocated. Collections require their episodes archived first.
+- Restore: restores prior lifecycle; formerly published titles return as hidden, requiring explicit Show. Episode slot conflicts are rejected, and the parent must be restored first. Legacy archived rows without lifecycle metadata return as drafts.
+
+Admin APIs: GET `/api/admin/content?page=0`; POST `/api/admin/titles/{id}/visibility` with `{ "visible": true }`; DELETE `/api/admin/titles/{id}`; POST `/api/admin/titles/{id}/restore`. All are server-authorized, audited mutations; list responses use no-store. Migration 013 adds hidden lifecycle, archive recovery metadata, and management ordering.
+
+Creation uses distinct New movie / New series collection / Add episode actions. Add episode carries and locks the exact parent ID. Selecting published content opens published management state; it does not convert it into a draft.

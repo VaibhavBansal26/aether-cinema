@@ -34,6 +34,7 @@ class PostgresIntegrationTest {
         db.execute(Files.readString(Path.of("migrations/010_release_schedule.sql")));
         db.execute(Files.readString(Path.of("migrations/011_studio_operations.sql")));
         db.execute(Files.readString(Path.of("migrations/012_archived_episode_numbers.sql")));
+        db.execute(Files.readString(Path.of("migrations/013_content_management.sql")));
     }
     @BeforeEach void seed() {
         db.execute("TRUNCATE billing_plan_changes,billing_price_versions,billing_plans,audit_log,stripe_events,playback,reactions,profiles,subscriptions,titles,users CASCADE");
@@ -291,5 +292,14 @@ class PostgresIntegrationTest {
         assertEquals("episode",db.queryForObject("SELECT kind FROM titles WHERE id=?",String.class,first));assertEquals(series,db.queryForObject("SELECT series_id FROM titles WHERE id=?",UUID.class,first));assertEquals(1,db.queryForObject("SELECT count(*) FROM titles WHERE kind='series'",Integer.class));assertThrows(ApiException.class,()->library.createDraft(admin,episode));
         var studio=new StudioOperations(db,new IdentityService(db));assertThrows(ApiException.class,()->studio.archive(admin,series));assertThrows(ApiException.class,()->studio.archive(new IdentityService.User(userId,"viewer"),first));studio.archive(admin,first);assertEquals("archived",db.queryForObject("SELECT status FROM titles WHERE id=?",String.class,first));UUID replacement=library.createDraft(admin,episode);assertNotEquals(first,replacement);
         studio.archive(admin,replacement);studio.archive(admin,series);assertThrows(ApiException.class,()->library.createDraft(admin,episode));
+    }
+    @Test void visibilityDoesNotRevertPublishedTitlesToDraftAndArchiveRestoresPrivately(){
+        var studio=new StudioOperations(db,new IdentityService(db));var admin=new IdentityService.User(userId,"admin");var viewer=new IdentityService.User(userId,"viewer");
+        assertThrows(ApiException.class,()->studio.contents(viewer,0));assertThrows(ApiException.class,()->studio.visibility(viewer,titleId,false));
+        studio.visibility(admin,titleId,false);assertEquals("hidden",db.queryForObject("SELECT status FROM titles WHERE id=?",String.class,titleId));assertEquals(0,library.catalog(50,null,null).size());
+        studio.visibility(admin,titleId,true);assertEquals("published",db.queryForObject("SELECT status FROM titles WHERE id=?",String.class,titleId));
+        studio.archive(admin,titleId);assertEquals(1,((List<?>)studio.contents(admin,0).get("titles")).size());studio.restore(admin,titleId);assertEquals("hidden",db.queryForObject("SELECT status FROM titles WHERE id=?",String.class,titleId));
+        studio.visibility(admin,titleId,true);assertEquals(1,library.catalog(50,null,null).size());
+        UUID draft=UUID.randomUUID();db.update("INSERT INTO titles(id,name,synopsis,genre,status) VALUES(?,'Unreviewed','Story','Drama','draft')",draft);assertThrows(ApiException.class,()->studio.visibility(admin,draft,true));studio.archive(admin,draft);studio.restore(admin,draft);assertEquals("draft",db.queryForObject("SELECT status FROM titles WHERE id=?",String.class,draft));
     }
 }
