@@ -17,7 +17,7 @@ public class BodyLimitFilter extends OncePerRequestFilter {
         if(!request.getRequestURI().startsWith("/api/")||!(request.getMethod().equals("POST")||request.getMethod().equals("PUT"))) {
             chain.doFilter(request,response); return;
         }
-        int limit=request.getRequestURI().equals("/api/stripe/webhook")?1048576:32768;
+        int limit=request.getRequestURI().equals("/api/stripe/webhook")?1048576:request.getRequestURI().matches("/api/admin/titles/[0-9a-fA-F-]{36}/artwork")?340020:32768;
         if(request.getContentLengthLong()>limit) { response.sendError(413); return; }
         byte[] body=request.getInputStream().readNBytes(limit+1);
         if(body.length>limit) { response.sendError(413); return; }

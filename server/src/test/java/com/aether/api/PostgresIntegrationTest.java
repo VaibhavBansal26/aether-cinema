@@ -32,9 +32,10 @@ class PostgresIntegrationTest {
         db.execute(Files.readString(Path.of("migrations/008_checkout_intents.sql")));
         db.execute(Files.readString(Path.of("migrations/009_retention.sql")));
         db.execute(Files.readString(Path.of("migrations/010_release_schedule.sql")));
+        db.execute(Files.readString(Path.of("migrations/011_studio_operations.sql")));
     }
     @BeforeEach void seed() {
-        db.execute("TRUNCATE audit_log,stripe_events,playback,reactions,profiles,subscriptions,titles,users CASCADE");
+        db.execute("TRUNCATE billing_plan_changes,billing_price_versions,billing_plans,audit_log,stripe_events,playback,reactions,profiles,subscriptions,titles,users CASCADE");
         db.update("INSERT INTO recommendation_settings(id) VALUES(1)");
         db.update("INSERT INTO users(id,subject) VALUES(?,?),(?,?)",userId,"viewer",otherUser,"other");
         db.update("INSERT INTO profiles(id,user_id,name) VALUES(?,?,'Main')",profileId,userId);
@@ -238,5 +239,49 @@ class PostgresIntegrationTest {
         var provider=org.mockito.Mockito.mock(CloudflareVideoClient.class);var result=new VideoPublishingService(db,new IdentityService(db),provider).list(admin);
         assertTrue(((List<Map<String,Object>>)result.get("titles")).stream().anyMatch(row->draft.equals(row.get("id"))));
         assertTrue(((List<Map<String,Object>>)result.get("series")).stream().anyMatch(row->series.equals(row.get("id"))));
+    }
+
+    @Test void artworkIsPrivateUntilPublishedAndEpisodeImageBecomesSeriesCover() throws Exception {
+        UUID series=UUID.randomUUID(),episode=UUID.randomUUID();
+        db.update("INSERT INTO titles(id,name,synopsis,genre,kind,status) VALUES(?,'A <series>','Story','Drama','series','draft')",series);
+        db.update("INSERT INTO titles(id,name,synopsis,genre,kind,series_id,season_number,episode_number,status) VALUES(?,'Episode','Story','Drama','episode',?,1,1,'draft')",episode,series);
+        var studio=new StudioOperations(db,new IdentityService(db));var admin=new IdentityService.User(userId,"admin");
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(160,90,java.awt.image.BufferedImage.TYPE_INT_RGB),"jpg",bytes);
+        studio.artwork(admin,episode,Base64.getEncoder().encodeToString(bytes.toByteArray()));assertEquals(2,db.queryForObject("SELECT count(*) FROM title_artwork",Integer.class));assertEquals(404,studio.artwork(episode).getStatusCode().value());
+        db.update("UPDATE titles SET status='published',published_at=now() WHERE id IN (?,?)",series,episode);assertEquals(org.springframework.http.MediaType.IMAGE_JPEG,studio.artwork(series).getHeaders().getContentType());assertEquals(200,studio.artwork(episode).getStatusCode().value());
+        assertThrows(ApiException.class,()->studio.artwork(new IdentityService.User(userId,"viewer"),episode,"abcd"));assertThrows(ApiException.class,()->studio.artwork(admin,episode,"not-an-image"));
+    }
+    @Test void analyticsCountsOnlyUnexpiredUnreleasedStreamsAndKeepsStartsSeparate(){
+        UUID otherProfile=UUID.randomUUID();db.update("INSERT INTO profiles(id,user_id,name) VALUES(?,?,'Other')",otherProfile,otherUser);
+        db.update("INSERT INTO playback_sessions(id,user_id,profile_id,title_id,client_id,expires_at) VALUES(?,?,?,?,?,now()+interval '1 minute'),(?,?,?,?,?,now()-interval '1 minute')",UUID.randomUUID(),userId,profileId,titleId,UUID.randomUUID(),UUID.randomUUID(),otherUser,otherProfile,titleId,UUID.randomUUID());
+        var studio=new StudioOperations(db,new IdentityService(db));var result=studio.analytics(new IdentityService.User(userId,"admin"));var totals=(Map<?,?>)result.get("totals");assertEquals(1L,totals.get("active_streams"));assertEquals(2L,totals.get("starts_24h"));assertThrows(ApiException.class,()->studio.analytics(new IdentityService.User(userId,"viewer")));
+    }
+    @Test void pendingCheckoutFreezesPriceEvenWhenNewUserOfferChanges(){
+        var intents=new CheckoutIntents(db,new DataSourceTransactionManager(db.getDataSource()));var first=intents.begin(userId,"cinema",UUID.randomUUID(),"price_original");var retry=intents.begin(userId,"cinema",UUID.randomUUID(),"price_new");assertEquals(first.id(),retry.id());assertEquals("price_original",retry.priceId());
+    }
+
+    @Test void adminRepricingKeepsHistoricPriceMappingAndIsIdempotent(){
+        var billing=new BillingService(db,new com.fasterxml.jackson.databind.ObjectMapper(),"sk_test_fixture","whsec_fixture","https://aether.example","price_original","price_two","price_four");billing.identity(new IdentityService(db));
+        var product=new com.stripe.model.Product();product.setId("prod_new");var price=new com.stripe.model.Price();price.setId("price_new");UUID request=UUID.randomUUID();var change=new BillingService.PlanChange("essential","Essential Plus",4,14900,"inr",request);
+        try(var products=org.mockito.Mockito.mockStatic(com.stripe.model.Product.class);var prices=org.mockito.Mockito.mockStatic(com.stripe.model.Price.class)){
+            products.when(()->com.stripe.model.Product.create(org.mockito.ArgumentMatchers.any(com.stripe.param.ProductCreateParams.class),org.mockito.ArgumentMatchers.any(com.stripe.net.RequestOptions.class))).thenReturn(product);
+            prices.when(()->com.stripe.model.Price.create(org.mockito.ArgumentMatchers.any(com.stripe.param.PriceCreateParams.class),org.mockito.ArgumentMatchers.any(com.stripe.net.RequestOptions.class))).thenReturn(price);
+            var admin=new IdentityService.User(userId,"admin");billing.changePlan(admin,change);billing.changePlan(admin,change);
+            assertEquals("price_new",db.queryForObject("SELECT current_price FROM billing_plans WHERE id='essential'",String.class));assertEquals(1,db.queryForObject("SELECT stream_limit FROM billing_price_versions WHERE price_id='price_original'",Integer.class));assertEquals(4,db.queryForObject("SELECT stream_limit FROM billing_price_versions WHERE price_id='price_new'",Integer.class));assertEquals(1,db.queryForObject("SELECT count(*) FROM billing_plan_changes",Integer.class));
+            assertThrows(ApiException.class,()->billing.changePlan(admin,new BillingService.PlanChange("essential","Changed request",4,15900,"inr",request)));
+            assertThrows(ApiException.class,()->billing.changePlan(new IdentityService.User(userId,"viewer"),change));
+        }
+    }
+    @Test void webhookUsesTheSubscribersHistoricPriceLimitAfterRepricing() {
+        var billing=new BillingService(db,new com.fasterxml.jackson.databind.ObjectMapper(),"sk_test_fixture","whsec_fixture","https://aether.example","price_original","price_two","price_four");billing.identity(new IdentityService(db));billing.adminPlans(new IdentityService.User(userId,"admin"));
+        db.update("UPDATE billing_plans SET current_price='price_new',stream_limit=4 WHERE id='essential'");db.update("INSERT INTO billing_price_versions(price_id,plan_id,stream_limit) VALUES('price_new','essential',4)");db.update("INSERT INTO subscriptions(user_id,customer_id,status) VALUES(?,'cus_old','none')",userId);
+        var current=new com.stripe.model.Subscription();current.setId("sub_old");current.setCustomer("cus_old");current.setStatus("active");current.setCancelAtPeriodEnd(false);var item=new com.stripe.model.SubscriptionItem();var price=new com.stripe.model.Price();price.setId("price_original");item.setPrice(price);var items=new com.stripe.model.SubscriptionItemCollection();items.setData(List.of(item));current.setItems(items);
+        var event=new com.stripe.model.Event();event.setId("evt_old_price");event.setType("customer.subscription.updated");
+        try(var verifier=org.mockito.Mockito.mockStatic(com.stripe.net.Webhook.class);var subscriptions=org.mockito.Mockito.mockStatic(com.stripe.model.Subscription.class)){
+            verifier.when(()->com.stripe.net.Webhook.constructEvent(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString())).thenReturn(event);
+            subscriptions.when(()->com.stripe.model.Subscription.retrieve(org.mockito.ArgumentMatchers.eq("sub_old"),org.mockito.ArgumentMatchers.any(com.stripe.net.RequestOptions.class))).thenReturn(current);
+            billing.handleWebhook("{\"data\":{\"object\":{\"id\":\"sub_old\"}}}","verified-test-fixture");
+            assertEquals(1,db.queryForObject("SELECT stream_limit FROM subscriptions WHERE user_id=?",Integer.class,userId));assertEquals("price_original",db.queryForObject("SELECT price_id FROM subscriptions WHERE user_id=?",String.class,userId));
+        }
     }
 }

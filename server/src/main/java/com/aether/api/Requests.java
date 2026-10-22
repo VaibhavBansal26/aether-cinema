@@ -17,7 +17,7 @@ public final class Requests {
         }
     }
     public record Reaction(@NotNull Boolean liked, @NotNull Boolean saved) {}
-    public record Checkout(@NotBlank @Pattern(regexp="essential|cinema|collective") String plan,@NotNull java.util.UUID requestId) {}
+    public record Checkout(@NotBlank @Pattern(regexp="[a-z][a-z0-9_-]{1,39}") String plan,@NotNull java.util.UUID requestId) {}
     public record Draft(@NotBlank @Size(max=120) String name,
                         @NotBlank @Size(max=5000) String synopsis,
                         @NotNull @Pattern(regexp="Drama|Adventure|Documentary|Sci-Fi|Thriller") String genre,

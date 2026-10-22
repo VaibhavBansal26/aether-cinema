@@ -17,7 +17,7 @@ public class SecurityConfig {
         return http.addFilterAfter(admission,org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class).csrf(csrf -> csrf.disable()) // No cookie/session authentication; JWT is in Authorization.
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
-                .requestMatchers(org.springframework.http.HttpMethod.GET,"/","/index.html","/style.css","/*.js","/assets/**","/api/auth/config").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET,"/","/index.html","/style.css","/*.js","/assets/**","/api/artwork/*","/api/auth/config").permitAll()
                 .requestMatchers("/health", "/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/stripe/webhook","/api/identity/sign-in/email","/api/identity/sign-up/email","/api/identity/sign-out","/api/identity/change-password").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/identity/get-session","/api/identity/token").permitAll()
