@@ -24,6 +24,8 @@ The public auth URL and JWKS location are deployment configuration, not secrets.
 
 ## Verification
 
-52 Java tests passed against disposable PostgreSQL, Redis and Python, including real Ed25519 signature/issuer/audience/expiry/algorithm/tampering checks, account bootstrap idempotence, ignored provider admin claims and endpoint authentication. Six frontend tests passed, including cookie-based API session restoration without relying on the SDK session cache. A synthetic managed identity successfully signed up and obtained a real JWT; its credentials are kept only in a protected local verification file. The local proxy successfully signed in the existing synthetic identity, restored its managed session and issued a JWT. Public browser reload and sign-out verification are recorded separately when completed; identity provisioning alone is not proof of working sign-in.
+52 Java tests passed against disposable PostgreSQL, Redis and Python, including real Ed25519 signature/issuer/audience/expiry/algorithm/tampering checks, account bootstrap idempotence, ignored provider admin claims and endpoint authentication. Six frontend tests passed, including cookie-based API session restoration without relying on the SDK session cache. A synthetic managed identity successfully signed up and obtained a real JWT; its credentials are kept only in a protected local verification file. The local proxy successfully signed in the existing synthetic identity, restored its managed session and issued a JWT. Public browser reload restored the viewer account and sign-out succeeded; identity provisioning alone is not proof of working sign-in.
 
 References: [Neon Auth](https://neon.com/docs/auth/overview), [managed JWT contract](https://neon.com/docs/auth/guides/plugins/jwt).
+
+Browser proof: `screenshots/18-cloud-session-restored.png` shows the restored Viewer account with empty credential fields after page reload on the public HTTPS deployment.
