@@ -29,3 +29,7 @@ The public auth URL and JWKS location are deployment configuration, not secrets.
 References: [Neon Auth](https://neon.com/docs/auth/overview), [managed JWT contract](https://neon.com/docs/auth/guides/plugins/jwt).
 
 Browser proof: `screenshots/18-cloud-session-restored.png` shows the restored Viewer account with empty credential fields after page reload on the public HTTPS deployment.
+
+## Clear account states
+
+The header shows `Sign in` while signed out and the account name plus sign-in/admin state after login or cookie restoration. Account controls open directly from that header. Sign in and Create account have separate modes: the name and new-password requirements apply only during registration. A successful sign-in replaces the form with the account email, server-owned role and Sign out. Administrators also get a Creator studio shortcut. Tokens remain in memory; session cookies restore the account on reload. Failed initialization can be retried instead of being cached permanently. Operator-assigned roles take effect on the next account refresh; an existing account must sign in rather than register again.

@@ -10,7 +10,7 @@ export function initializeAuth(){
 }
 export const currentAccount=()=>authModule?.currentAccount()||null;
 export async function openAccountControls(options){
- await initializeAuth();
- if(authModule)return authModule.openAccountControls(options);
- options.modal('<div class="dialog-padding"><p class="eyebrow">YOUR AETHER ACCOUNT</p><h2>Sign-in is not connected here.</h2><p class="notice">The sign-in service could not be reached. The free server may be waking up. Close this dialog and try Sign in again in a moment.</p></div>','Aether account');
+ const ready=await initializeAuth();
+ if(ready&&authModule)return authModule.openAccountControls(options);
+ options.modal('<div class="dialog-padding"><p class="eyebrow">YOUR AETHER ACCOUNT</p><h2>Sign-in is temporarily unavailable.</h2><p class="notice">The sign-in service could not be reached. The free server may be waking up. Close this dialog and try Sign in again in a moment.</p></div>','Aether account');
 }
