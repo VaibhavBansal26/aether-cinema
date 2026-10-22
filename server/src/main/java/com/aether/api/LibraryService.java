@@ -59,7 +59,8 @@ public class LibraryService {
         UUID id = UUID.randomUUID();
         String kind=body.kind()==null?"films":body.kind();
         if("episode".equals(kind)){
-            if(body.seriesId()==null||body.seasonNumber()==null||body.episodeNumber()==null||db.queryForObject("SELECT count(*) FROM titles WHERE id=? AND kind='series'",Integer.class,body.seriesId())!=1)throw new ApiException(HttpStatus.BAD_REQUEST,"Episode requires an existing series, season and episode number");
+            if(body.seriesId()==null||body.seasonNumber()==null||body.episodeNumber()==null||db.queryForObject("SELECT count(*) FROM titles WHERE id=? AND kind='series' AND status<>'archived'",Integer.class,body.seriesId())!=1)throw new ApiException(HttpStatus.BAD_REQUEST,"Episode requires an existing series, season and episode number");
+            if(db.queryForObject("SELECT count(*) FROM titles WHERE kind='episode' AND series_id=? AND season_number=? AND episode_number=? AND status<>'archived'",Integer.class,body.seriesId(),body.seasonNumber(),body.episodeNumber())>0)throw new ApiException(HttpStatus.CONFLICT,"This season and episode already exist. Select that episode or choose a different episode number.");
         }else if(body.seriesId()!=null||body.seasonNumber()!=null||body.episodeNumber()!=null)throw new ApiException(HttpStatus.BAD_REQUEST,"Only episodes have series metadata");
         db.update("INSERT INTO titles(id,name,synopsis,genre,kind,series_id,season_number,episode_number,poster) VALUES(?,?,?,?,?,?,?,?,?)",id,body.name(),body.synopsis(),body.genre(),kind,body.seriesId(),body.seasonNumber(),body.episodeNumber(),body.poster()==null?"signal-hero.jpg":body.poster());
         db.update("INSERT INTO audit_log(actor,action,title_id) VALUES(?,'draft.create',?)",user.id(),id);

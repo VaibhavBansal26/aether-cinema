@@ -29,6 +29,12 @@ public class StudioOperations {
   db.update("INSERT INTO title_artwork(title_id,jpeg) SELECT series_id,? FROM titles WHERE id=? AND kind='episode' ON CONFLICT(title_id) DO NOTHING",bytes,title);
   db.update("INSERT INTO audit_log(actor,action,title_id) VALUES(?,'artwork.updated',?)",user.id(),title);
  }
+ /** Recoverable archive; media allocation and history are deliberately retained. */
+ @Transactional public void archive(IdentityService.User user,UUID title){
+  identity.requireAdmin(user);var rows=db.queryForList("SELECT kind,status FROM titles WHERE id=? FOR UPDATE",title);if(rows.isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"Title not found");if("archived".equals(rows.getFirst().get("status")))return;
+  if("series".equals(rows.getFirst().get("kind"))&&db.queryForObject("SELECT count(*) FROM titles WHERE series_id=? AND status<>'archived'",Integer.class,title)>0)throw new ApiException(HttpStatus.CONFLICT,"Delete this collection's episodes first. Your episodes have not been changed.");
+  db.update("UPDATE titles SET status='archived' WHERE id=?",title);db.update("UPDATE playback_sessions SET released_at=now(),expires_at=now() WHERE title_id=? AND released_at IS NULL",title);db.update("INSERT INTO audit_log(actor,action,title_id) VALUES(?,'title.archived',?)",user.id(),title);
+ }
  /** Public images expose artwork only for due published titles; drafts return no metadata. */
  public ResponseEntity<byte[]> artwork(UUID title){
   var rows=db.queryForList("SELECT t.name,t.genre,t.kind,a.jpeg FROM titles t LEFT JOIN title_artwork a ON a.title_id=t.id WHERE t.id=? AND t.status='published' AND t.published_at<=now() AND (t.kind<>'episode' OR EXISTS(SELECT 1 FROM titles s WHERE s.id=t.series_id AND s.status='published' AND s.published_at<=now()))",title);

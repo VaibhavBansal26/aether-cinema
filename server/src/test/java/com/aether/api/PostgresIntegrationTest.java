@@ -33,6 +33,7 @@ class PostgresIntegrationTest {
         db.execute(Files.readString(Path.of("migrations/009_retention.sql")));
         db.execute(Files.readString(Path.of("migrations/010_release_schedule.sql")));
         db.execute(Files.readString(Path.of("migrations/011_studio_operations.sql")));
+        db.execute(Files.readString(Path.of("migrations/012_archived_episode_numbers.sql")));
     }
     @BeforeEach void seed() {
         db.execute("TRUNCATE billing_plan_changes,billing_price_versions,billing_plans,audit_log,stripe_events,playback,reactions,profiles,subscriptions,titles,users CASCADE");
@@ -283,5 +284,12 @@ class PostgresIntegrationTest {
             billing.handleWebhook("{\"data\":{\"object\":{\"id\":\"sub_old\"}}}","verified-test-fixture");
             assertEquals(1,db.queryForObject("SELECT stream_limit FROM subscriptions WHERE user_id=?",Integer.class,userId));assertEquals("price_original",db.queryForObject("SELECT price_id FROM subscriptions WHERE user_id=?",String.class,userId));
         }
+    }
+
+    @Test void episodeCreationKeepsParentAndArchiveAllowsReplacingItsNumber(){
+        UUID series=UUID.randomUUID();db.update("INSERT INTO titles(id,name,synopsis,genre,kind) VALUES(?,'Parent','Story','Drama','series')",series);var admin=new IdentityService.User(userId,"admin");var episode=new Requests.Draft("Episode two","Story","Drama","episode",series,1,2,"signal-hero.jpg");UUID first=library.createDraft(admin,episode);
+        assertEquals("episode",db.queryForObject("SELECT kind FROM titles WHERE id=?",String.class,first));assertEquals(series,db.queryForObject("SELECT series_id FROM titles WHERE id=?",UUID.class,first));assertEquals(1,db.queryForObject("SELECT count(*) FROM titles WHERE kind='series'",Integer.class));assertThrows(ApiException.class,()->library.createDraft(admin,episode));
+        var studio=new StudioOperations(db,new IdentityService(db));assertThrows(ApiException.class,()->studio.archive(admin,series));assertThrows(ApiException.class,()->studio.archive(new IdentityService.User(userId,"viewer"),first));studio.archive(admin,first);assertEquals("archived",db.queryForObject("SELECT status FROM titles WHERE id=?",String.class,first));UUID replacement=library.createDraft(admin,episode);assertNotEquals(first,replacement);
+        studio.archive(admin,replacement);studio.archive(admin,series);assertThrows(ApiException.class,()->library.createDraft(admin,episode));
     }
 }

@@ -18,7 +18,7 @@ public class ErrorHandler {
     @ExceptionHandler({MethodArgumentNotValidException.class,MethodArgumentTypeMismatchException.class,HttpMessageNotReadableException.class})
     ResponseEntity<Map<String,String>> invalid(Exception e) { return ResponseEntity.badRequest().body(Map.of("error","Invalid request")); }
     @ExceptionHandler(DataIntegrityViolationException.class)
-    ResponseEntity<Map<String,String>> conflict(Exception e) { return ResponseEntity.status(409).body(Map.of("error","Related record missing or conflicting")); }
+    ResponseEntity<Map<String,String>> conflict(Exception e) { if(e instanceof DataIntegrityViolationException error&&error.getMostSpecificCause().getMessage()!=null&&error.getMostSpecificCause().getMessage().contains("titles_episode_number"))return ResponseEntity.status(409).body(Map.of("error","This season and episode already exist. Select that episode or choose another number."));return ResponseEntity.status(409).body(Map.of("error","Related record missing or conflicting")); }
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
     ResponseEntity<?> missing(Exception e){return ResponseEntity.status(404).body(Map.of("error","Endpoint not found"));}
     @ExceptionHandler(Exception.class)

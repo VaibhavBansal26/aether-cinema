@@ -30,3 +30,8 @@ Customer-portal sessions include current offers and the member's historical pric
 ## Deployment and verification
 
 Apply migration `011_studio_operations.sql` before deploying the matching server. Old migrations remain immutable. Tests cover artwork privacy/inheritance and decoding limits, analytics lease semantics, price-version idempotency, grandfathered stream limits and frozen checkout prices. Browser verification covers published series routing, player proportions, membership state, admin surfaces and wizard validation. A CDN read or a playback lease alone is not evidence of sustained million-user capacity.
+
+
+Publishing workflow safeguards: the selected title shows a prominent PUBLISHED, SCHEDULED or DRAFT badge. Add episode locks the parent series and content type; a successful draft creation selects that episode. Details, upload and review gates must pass before advancing. Episode numbers are unique among non-archived episodes of the same series and season.
+
+DELETE /api/admin/titles/{id} archives the title, ends its playback leases and hides it from the catalog and publishing selector. It preserves media, history and storage reservations. Collections must have their episodes archived first. Migration 012 permits reuse of archived episode numbers. No media storage is reclaimed by this operation.
