@@ -17,6 +17,7 @@ public class SecurityConfig {
         return http.csrf(csrf -> csrf.disable()) // No cookie/session authentication; JWT is in Authorization.
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
+                .requestMatchers(org.springframework.http.HttpMethod.GET,"/","/index.html","/style.css","/*.js","/assets/**","/api/auth/config").permitAll()
                 .requestMatchers("/health", "/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/stripe/webhook").permitAll()
                 .anyRequest().authenticated())
@@ -28,7 +29,10 @@ public class SecurityConfig {
     @Bean
     JwtDecoder jwtDecoder(@Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwks,
                           @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
-                          @Value("${app.audience}") String audience) {
+                          @Value("${app.audience}") String audience,
+                          @Value("${app.oidc-algorithm:RS256}") String algorithm) {
+        if("EdDSA".equals(algorithm))return new ManagedEd25519Decoder(jwks,issuer,audience);
+        if(!"RS256".equals(algorithm))throw new IllegalArgumentException("Unsupported identity algorithm");
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwks).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
             JwtValidators.createDefaultWithIssuer(issuer), audienceValidator(audience)));

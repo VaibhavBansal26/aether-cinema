@@ -130,4 +130,17 @@ class PostgresIntegrationTest {
         assertEquals(1,db.queryForObject("SELECT count(*) FROM audit_log WHERE action='video.publish.reviewed' AND title_id=?",Integer.class,draft));
     }
 
+    @Test void accountBootstrapIsIdempotentAndNeverTrustsProviderAdminClaim() {
+        var accounts=new AccountService(db);String subject="new-identity-"+UUID.randomUUID();
+        var jwt=org.springframework.security.oauth2.jwt.Jwt.withTokenValue("test").header("alg","RS256").subject(subject).claim("role","admin").build();
+        var first=transactions.execute(status->accounts.bootstrap(jwt));
+        var second=transactions.execute(status->accounts.bootstrap(jwt));
+        var user=(Map<?,?>)first.get("user");assertEquals("viewer",user.get("role"));
+        assertEquals(user,second.get("user"));
+        assertEquals(1,db.queryForObject("SELECT count(*) FROM profiles WHERE user_id=?",Integer.class,user.get("id")));
+        db.update("UPDATE users SET role='admin' WHERE id=?",user.get("id"));
+        var existing=transactions.execute(status->accounts.bootstrap(jwt));
+        assertEquals("admin",((Map<?,?>)existing.get("user")).get("role"));
+    }
+
 }

@@ -1,0 +1,10 @@
+.git
+.openai
+node_modules
+server/target
+recommender/.venv
+**/__pycache__
+**/.pytest_cache
+.env
+.env.local
+*.tar.gz

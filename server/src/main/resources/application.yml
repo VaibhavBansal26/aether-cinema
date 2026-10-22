@@ -48,6 +48,8 @@ management:
         readiness:
           include: readinessState,db
 app:
+  neon-auth-url: ${NEON_AUTH_URL:}
+  oidc-algorithm: ${OIDC_ALGORITHM:RS256}
   worker-enabled: ${WORKER_ENABLED:false}
   recommendation-cache-enabled: ${RECOMMENDATION_CACHE_ENABLED:false}
   audience: ${OIDC_AUDIENCE}

@@ -7,8 +7,8 @@ services:
     branch: main
     plan: free
     region: oregon
-    dockerfilePath: ./server/Dockerfile
-    dockerContext: ./server
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
       - fromGroup: aether-demo-secrets
@@ -28,14 +28,18 @@ services:
         fromDatabase: {name: aether-demo-db, property: password}
       - key: REDIS_URL
         fromService: {name: aether-demo-cache, type: keyvalue, property: connectionString}
+      - key: OIDC_ALGORITHM
+        value: EdDSA
+      - key: NEON_AUTH_URL
+        value: https://ep-curly-haze-argbauyb.neonauth.c-4.us-west-2.aws.neon.tech/aether_auth/auth
       - key: OIDC_ISSUER
-        sync: false
+        value: https://ep-curly-haze-argbauyb.neonauth.c-4.us-west-2.aws.neon.tech
       - key: OIDC_JWKS_URL
-        sync: false
+        value: https://ep-curly-haze-argbauyb.neonauth.c-4.us-west-2.aws.neon.tech/aether_auth/auth/.well-known/jwks.json
       - key: OIDC_AUDIENCE
-        sync: false
+        value: https://ep-curly-haze-argbauyb.neonauth.c-4.us-west-2.aws.neon.tech
       - key: APP_ORIGIN
-        sync: false
+        fromService: {name: aether-api-demo, type: web, envVarKey: RENDER_EXTERNAL_URL}
       - key: RECOMMENDER_URL
         fromService: {name: aether-recommender-demo, type: web, envVarKey: RENDER_EXTERNAL_URL}
       - key: WORKER_ENABLED

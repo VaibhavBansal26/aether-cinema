@@ -4,7 +4,7 @@ A cinematic streaming product foundation with an ink-black theme, lime accents, 
 
 ## Run
 
-Frontend: `npm run dev` then open http://localhost:4173. Tests: `npm test` (Node 22+). No frontend dependencies or build step.
+Frontend: `npm run dev` then open http://localhost:4173. Tests: `npm test` (Node 22+). Prebuilt assets are included. Run `npm ci && npm run build:auth` to rebuild the managed sign-in client.
 
 API: Java 21 + Spring Boot 3.5.16 + Maven. In `server/`, run `mvn verify`, supply the environment variables in `.env.example` through your secret manager, apply `schema.sql` using a migration role against a new PostgreSQL database, provision OIDC users/profiles and Stripe customer mappings, then run `java -jar target/aether-api-0.2.0.jar`. The database URL must be JDBC format (`jdbc:postgresql://…`); credentials use separate `DATABASE_USERNAME` / `DATABASE_PASSWORD` variables. Spring does not automatically load `.env` files. No real service credentials are committed; isolated local tests use clearly marked disposable fixtures. The static preview does not call this API; frontend authentication, HLS playback and remote persistence must be wired before launch.
 
@@ -57,3 +57,5 @@ Infrastructure additions: see [queue, Redis cache, production database, monitori
 Admin video publishing is available under **Creator studio → Open video publishing studio**. See [direct resumable uploads, encoding, adaptive preview and publishing](docs/VIDEO-PUBLISHING.md). Apply migration 004 and configure Cloudflare before using live uploads.
 
 A complete disposable local backend stack is available in [LOCAL-STACK.md](docs/LOCAL-STACK.md). It includes a test-only JWT signer and must never be publicly deployed.
+
+Managed sign-in, account bootstrap and role boundaries are documented in [AUTHENTICATION.md](docs/AUTHENTICATION.md). The combined frontend/API image is built with `docker build -f deploy/Dockerfile .`.
