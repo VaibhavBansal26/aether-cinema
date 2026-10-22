@@ -51,6 +51,8 @@ The complete local stack passed authenticated HTTP checks for ownership, admin i
 
 ## Managed authentication update
 
-All 52 Java tests passed with zero failures/errors/skips against disposable PostgreSQL, Redis and Python. Five frontend tests passed; the combined Docker image built successfully. Real Neon managed sign-up and JWT issuance succeeded with a synthetic fixture account. Cloud-backed Java onboarding results are recorded separately in the authentication check report. No owner/admin privilege was granted to the synthetic fixture.
+All 52 Java tests passed with zero failures/errors/skips against disposable PostgreSQL, Redis and Python. Six frontend tests passed; the combined Docker image built successfully. Real Neon managed sign-up and JWT issuance succeeded with a synthetic fixture account. Cloud-backed Java onboarding results are recorded separately in the authentication check report. No owner/admin privilege was granted to the synthetic fixture.
 
 The same-origin identity proxy passed request-origin, cookie isolation, secure cookie rewriting and forwarding tests. A local real-provider check returned successful sign-in, session restoration and JWT issuance through the proxy. Public browser checks are recorded after the final deployment.
+
+Public HTTPS API verification passed: auth configuration, real managed sign-in/cookie session/token, idempotent viewer bootstrap, unauthenticated 401, viewer/admin 403, DB readiness and confirmed sign-out. The warm Python service returned `model=tfidf-v1`, `llm_status=disabled`; a cold request returned the documented editorial fallback. The cloud catalog contains no published films, so this does not validate ranking quality or real media playback.
