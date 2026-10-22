@@ -10,6 +10,6 @@ import org.springframework.http.*;
 public class AccountController {
  private final AccountService accounts;private final String authUrl;
  public AccountController(AccountService accounts,@Value("${app.neon-auth-url:}") String authUrl){this.accounts=accounts;this.authUrl=authUrl;}
- @GetMapping("/api/auth/config") public ResponseEntity<?> config(){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("enabled",!authUrl.isBlank(),"authUrl",authUrl));}
+ @GetMapping("/api/auth/config") public ResponseEntity<?> config(){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("enabled",!authUrl.isBlank(),"authUrl",authUrl.isBlank()?"":"/api/identity"));}
  @PostMapping("/api/session/bootstrap") public ResponseEntity<?> bootstrap(@AuthenticationPrincipal Jwt jwt){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(accounts.bootstrap(jwt));}
 }
