@@ -6,10 +6,11 @@ export function initializeAuth(){
    const config=await response.json();if(!config.enabled)return false;
    authModule=await import('./auth-client.js');return await authModule.initializeAuth();
   }catch{return false;}
- })();return initialization;
+ })();return initialization.then(ok=>{if(!ok)initialization=null;return ok;});
 }
+export const currentAccount=()=>authModule?.currentAccount()||null;
 export async function openAccountControls(options){
  await initializeAuth();
  if(authModule)return authModule.openAccountControls(options);
- options.modal('<div class="dialog-padding"><p class="eyebrow">YOUR AETHER ACCOUNT</p><h2>Sign-in is not connected here.</h2><p class="notice">This static preview keeps your library on this browser. Account sign-in is available on the backend deployment once its identity service is configured.</p></div>','Aether account');
+ options.modal('<div class="dialog-padding"><p class="eyebrow">YOUR AETHER ACCOUNT</p><h2>Sign-in is not connected here.</h2><p class="notice">The sign-in service could not be reached. The free server may be waking up. Close this dialog and try Sign in again in a moment.</p></div>','Aether account');
 }
