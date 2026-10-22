@@ -1,12 +1,14 @@
 # AETHER — Cinema, considered
 
-A cinematic streaming product foundation with an ink-black theme, lime accents, original promotional key art, and content-first browsing. **This release is a private functional frontend preview plus an unprovisioned reference API. It is not a production service and has not been tested at one million concurrent viewers.**
+A cinematic streaming product foundation with an ink-black theme, lime accents, original promotional key art, and content-first browsing. **This release includes a free Render demonstration with managed Neon authentication and a separate owner-private Sites preview. It is not a production service and has not been tested at one million concurrent viewers.**
+
+Live demo: https://aether-api-demo.onrender.com · [Authentication](docs/AUTHENTICATION.md) · [Deployment limits](docs/FREE-DEPLOYMENT.md).
 
 ## Run
 
 Frontend: `npm run dev` then open http://localhost:4173. Tests: `npm test` (Node 22+). Prebuilt assets are included. Run `npm ci && npm run build:auth` to rebuild the managed sign-in client.
 
-API: Java 21 + Spring Boot 3.5.16 + Maven. In `server/`, run `mvn verify`, supply the environment variables in `.env.example` through your secret manager, apply `schema.sql` using a migration role against a new PostgreSQL database, provision OIDC users/profiles and Stripe customer mappings, then run `java -jar target/aether-api-0.2.0.jar`. The database URL must be JDBC format (`jdbc:postgresql://…`); credentials use separate `DATABASE_USERNAME` / `DATABASE_PASSWORD` variables. Spring does not automatically load `.env` files. No real service credentials are committed; isolated local tests use clearly marked disposable fixtures. The static preview does not call this API; frontend authentication, HLS playback and remote persistence must be wired before launch.
+API: Java 21 + Spring Boot 3.5.16 + Maven. In `server/`, run `mvn verify`, supply the environment variables in `.env.example` through your secret manager, apply `schema.sql` using a migration role against a new PostgreSQL database, provision OIDC users/profiles and Stripe customer mappings, then run `java -jar target/aether-api-0.2.0.jar`. The database URL must be JDBC format (`jdbc:postgresql://…`); credentials use separate `DATABASE_USERNAME` / `DATABASE_PASSWORD` variables. Spring does not automatically load `.env` files. No real service credentials are committed; isolated local tests use clearly marked disposable fixtures. The combined cloud deployment supports managed sign-in and account bootstrap. The disconnected Sites preview keeps device-local state. Real catalog/media, billing credentials and production hardening remain required before launch.
 
 Container build: `docker build -t aether-api:0.2.0 server`. Run with your injected environment or a protected local env file using `docker run --rm --env-file server/.env -p 8080:8080 aether-api:0.2.0`. The image runs as a non-root user. See [backend setup](server/README.md).
 
@@ -27,9 +29,9 @@ Container build: `docker build -t aether-api:0.2.0 server`. Run with your inject
 
 `recommender/` implements TF-IDF content similarity, watch/like/format affinity, optional offline implicit-feedback SVD, diverse ranking and explicit homepage row/card positions. Spring Boot reads owned-profile history and calls the private service. **LLM is optional and OFF by default.** Only an authenticated admin can enable Local Ollama and specify an installed model in Creator studio → Manage recommendation settings. No OpenAI API key is needed or used. See [recommendation setup](docs/RECOMMENDATIONS.md).
 
-Apply `server/migrations/002_recommendations.sql` once after the baseline schema. The static preview has no live account/backend connection and therefore cannot enable an LLM; its settings form clearly shows that boundary. Python and Java integration were verified locally; public service deployment remains pending.
+Apply `server/migrations/002_recommendations.sql` once after the baseline schema. The static preview has no live account/backend connection and therefore cannot enable an LLM; its settings form clearly shows that boundary. Python and Java integration were verified locally; both services are also deployed on the free Render demo.
 
-## Integration foundation (not live)
+## Integration foundation
 
 The separate Spring Boot API uses Spring Security OAuth2 Resource Server for JWT verification (issuer, audience, expiry and JWKS signature), application-owned roles, profile ownership, Spring JDBC parameterized writes, HikariCP connection pooling, Bean Validation, signed Cloudflare playback authorization, the official Stripe Java SDK, raw-body webhook signatures, event deduplication and per-subscription serialization, bounded payloads, graceful shutdown and transactional draft audit records. Actuator exposes anonymous health probes and authenticated Prometheus metrics; the free Render profile exposes health only. Configure distributed rate limiting at the gateway/WAF before exposure.
 

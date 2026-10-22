@@ -51,4 +51,6 @@ The complete local stack passed authenticated HTTP checks for ownership, admin i
 
 ## Managed authentication update
 
-All 49 Java tests passed with zero failures/errors/skips against disposable PostgreSQL, Redis and Python. Five frontend tests passed; the combined Docker image built successfully. Real Neon managed sign-up and JWT issuance succeeded with a synthetic fixture account. Cloud-backed Java onboarding results are recorded separately in the authentication check report. No owner/admin privilege was granted to the synthetic fixture.
+All 52 Java tests passed with zero failures/errors/skips against disposable PostgreSQL, Redis and Python. Five frontend tests passed; the combined Docker image built successfully. Real Neon managed sign-up and JWT issuance succeeded with a synthetic fixture account. Cloud-backed Java onboarding results are recorded separately in the authentication check report. No owner/admin privilege was granted to the synthetic fixture.
+
+The same-origin identity proxy passed request-origin, cookie isolation, secure cookie rewriting and forwarding tests. A local real-provider check returned successful sign-in, session restoration and JWT issuance through the proxy. Public browser checks are recorded after the final deployment.

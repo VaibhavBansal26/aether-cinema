@@ -74,6 +74,26 @@ Additional modules: `dist/api-client.js`, `dist/recommendation-controls.js`, `re
 | `POST /api/stripe/webhook` | Raw body + `Stripe-Signature`; no OIDC needed; 204 after verification/reconciliation. |
 | `POST /api/admin/titles` | `name`, `synopsis`, `genre` → 201 with draft ID. |
 
-All `/api` endpoints except the signed webhook require Bearer authentication and a provisioned application user. Frontend integration is not live. Profile/UUID/type errors return 400; non-owned profile returns 404; insufficient admin/entitlement returns 403. Missing records/conflicting foreign keys return 409. Unexpected errors return generic 500.
+Business `/api` endpoints require Bearer authentication and an application user. Exceptions are the signed webhook, public auth configuration, and five allowlisted identity proxy routes. Managed authentication and viewer onboarding are connected on the combined Render deployment. Profile/UUID/type errors return 400; non-owned profile returns 404; insufficient admin/entitlement returns 403. Missing records/conflicting foreign keys return 409. Unexpected errors return generic 500.
 
-Not implemented: sign-up/customer provisioning, profile CRUD, live OIDC onboarding and complete production catalog/artwork wiring, admin upload/publication, concurrency leases, DRM, territory rights, captions UI, deletion/export and live billing tests. Progress is last-arriving-write wins; add session sequencing for concurrent devices. Define one-subscription-per-customer policy, reject duplicate purchases and add Checkout idempotency before collecting payments. Distributed rate limiting is a required deployment responsibility. Third-party Stripe/Cloudflare integrations need sandbox/live end-to-end verification.
+Not implemented: Stripe customer provisioning, profile CRUD, complete production catalog/artwork wiring, concurrency leases, DRM, territory rights enforcement, captions playback UI, deletion/export and live billing tests. Admin upload/processing/review/publication is implemented but awaits real Cloudflare provider verification. Progress is last-arriving-write wins; add session sequencing for concurrent devices. Define one-subscription-per-customer policy, reject duplicate purchases and add Checkout idempotency before collecting payments. Distributed rate limiting is a required deployment responsibility. Third-party Stripe/Cloudflare integrations need sandbox/live end-to-end verification.
+
+
+## Managed identity additions
+
+| Entry point | Behavior |
+|---|---|
+| `GET /api/auth/config` | Public, uncached enabled flag and relative identity proxy URL. |
+| `POST /api/session/bootstrap` | Verified JWT → idempotent viewer user/Main profile, published title ID mapping; uncached. |
+| `/api/identity/sign-in/email`, `/sign-up/email`, `/sign-out` | POST-only fixed upstream routes; exact Origin check, limited JSON, first-party managed cookies. |
+| `/api/identity/get-session`, `/token` | GET-only fixed upstream routes; cookie session lookup and short-lived JWT issuance. |
+| `IdentityProxyController.identityCookies` | Forward only managed identity cookies. |
+| `IdentityProxyController.firstPartyCookie` | Remove upstream Domain, set SameSite=Lax; preserve Secure/HttpOnly. |
+| `ManagedEd25519Decoder.decode` | Verify pinned EdDSA, JWKS signature, issuer/audience/time and mandatory subject/expiry. |
+| `AccountService.bootstrap` | Advisory-lock subject onboarding; preserve operator roles; ignore provider role claims. |
+| `account-controls.initializeAuth` | Fetch public config once; lazy-load SDK only when enabled. |
+| `auth-entry.initializeAuth` | Create managed client; restore existing session and profile. |
+| `auth-entry.connect` | Obtain API JWT, bootstrap profile and schedule refresh; memory-only API token. |
+| `auth-entry.openAccountControls` | Sign-in/signup/sign-out UI, validation, safe status text and role display. |
+
+See AUTHENTICATION.md for trust boundaries and limitations. New accounts are viewers; no browser-controlled role promotion exists.
