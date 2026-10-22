@@ -6,7 +6,8 @@ import {catalog} from './catalog.js';
 let client=null,account=null,refreshTimer=null;
 export const currentAccount=()=>account;
 async function connect(){
- const {data,error}=await client.token();if(error||!data?.token)throw new Error('Sign-in could not establish a session. Check browser cookie settings and try again.');
+ const tokenResponse=await fetch('/api/identity/token',{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(20000)});
+ const data=tokenResponse.ok?await tokenResponse.json():null;if(!data?.token)throw new Error('Sign-in could not establish a session. Check browser cookie settings and try again.');
  const response=await fetch('/api/session/bootstrap',{method:'POST',headers:{Authorization:`Bearer ${data.token}`},cache:'no-store',signal:AbortSignal.timeout(20000)});
  if(!response.ok)throw new Error('Your identity is signed in, but the application account could not be loaded.');
  const result=await response.json();const profile=result.profiles[0];if(!profile)throw new Error('No profile is available.');
@@ -20,7 +21,7 @@ export async function initializeAuth(){
   const response=await fetch('/api/auth/config',{cache:'no-store'});if(!response.ok)return false;const config=await response.json();
   if(!config.enabled||!config.authUrl)return false;
   client=createAuthClient(new URL(config.authUrl,window.location.origin).href,{adapter:BetterAuthVanillaAdapter({fetchOptions:{credentials:'include'}})});
-  const {data}=await client.getSession();if(data?.user)await connect();
+  try{await connect();}catch{account=null;clearSession();}
   return true;
  }catch{return false;}
 }
