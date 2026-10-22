@@ -102,10 +102,11 @@ async function hydrateAccount(){if(!hasSession())return;try{
  const live=await loadLiveCatalog(),library=await loadLibrary();if(!hasSession())return;
  catalog.splice(0,catalog.length,...live);knownIds.clear();live.forEach(f=>knownIds.add(f.id));state={...state,...library};serverLayout=null;
  $('.hero').hidden=!live.length;$('.featured-switcher').hidden=true;$('.hero-credit').textContent='Published catalog · Adaptive streaming';$('.original-label').textContent='AETHER CATALOG';$('#heroPlay').textContent='Watch';
- if(live.length)feature(live[0].id);if(!$('#modal').open)render();if(!live.length)$('#catalogRows').textContent='Your catalog is ready. Published movies and series will appear here.';
+ if(live.length)feature(live[0].id);render();if(!live.length)$('#catalogRows').textContent='Your catalog is ready. Published movies and series will appear here.';
  void refreshRecommendations();
  }catch(e){toast('Account connected, but catalog loading failed: '+e.message);}}
 window.addEventListener('aether:session-ready',hydrateAccount);
+window.addEventListener('aether:catalog-changed',hydrateAccount);
 window.addEventListener('aether:session-cleared',()=>{layoutRequest++;serverLayout=null;cleanupMedia();catalog.splice(0,catalog.length,...previewCatalog);state={...raw,likes:raw.likes||[],saved:raw.saved||[],progress:raw.progress||{}};$('.hero').hidden=false;$('.featured-switcher').hidden=false;feature('signal');render();});
 
 $('#profile').textContent='Checking account…';
