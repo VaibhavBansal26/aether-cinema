@@ -97,3 +97,7 @@ Not implemented: Stripe customer provisioning, profile CRUD, complete production
 | `auth-entry.openAccountControls` | Sign-in/signup/sign-out UI, validation, safe status text and role display. |
 
 See AUTHENTICATION.md for trust boundaries and limitations. New accounts are viewers; no browser-controlled role promotion exists.
+
+### Profile and account recovery
+
+`/#account` opens the dedicated account page. Signed-out visitors choose Sign in or Create account; signed-in visitors see email/role, password change, membership status and sign-out. `POST /api/identity/change-password` forwards only to the configured managed provider, requires the application Origin and identity cookie, and lets the provider validate the current password. The browser sends `currentPassword`, `newPassword` and `revokeOtherSessions: true`; matching confirmation and a 12-character minimum are checked before sending. A failed password change does not show success. Membership upgrades use the existing authenticated Stripe billing portal; new subscribers use server-owned prices. No payment action is enabled while Stripe is unconfigured.

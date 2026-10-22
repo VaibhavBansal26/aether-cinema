@@ -70,3 +70,7 @@ The private Cloudflare gateway successfully reserved and uploaded a synthetic fo
 Application release `c61f1b3` deployed successfully on Render. Public HTTPS checks passed: managed sign-in, secure cookie session/token, idempotent viewer bootstrap, recommendation model `tfidf-v1` with `llm_status=disabled`, billing status, readiness, sign-out, and viewer rejection (403) at storage limits/cycles endpoints. New catalog and R2 studio assets returned 200. Initial rate-limited API calls returned 503 during a cold Redis connection; subsequent checks passed with admission controls still enabled. The current health probe can become healthy before Redis is ready; operators should use dependency-aware readiness before production. No test account was granted admin rights.
 
 Deployment proof: `screenshots/20-r2-release-live.png`.
+
+## Profile and authentication recovery — October 21, 2026 EDT
+
+Seven frontend tests and fourteen targeted Java authorization, identity-proxy and admission checks passed. A local Redis-stop check returned readiness 503, liveness 200 and protected API 503; after restart readiness and auth configuration returned 200. The deployment health check requires PostgreSQL and Redis. The free profile uses bounded 3-second Redis connection and 2-second command timeouts. Account-specific verification records and signed-in screenshots are retained locally rather than published. Successful password replacement and live Stripe upgrades have not been tested.
